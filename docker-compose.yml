@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  job-pulse-auto-apply:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: job-pulse-app
+    ports:
+      - "8080:80"
+    restart: always
+    environment:
+      - NODE_ENV=production
