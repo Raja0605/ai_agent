@@ -25,7 +25,8 @@ export const AnalyticsOverview: React.FC<AnalyticsOverviewProps> = ({
   const naukriCount = jobs.filter(j => j.platform === 'naukri').length;
   const indeedCount = jobs.filter(j => j.platform === 'indeed').length;
   const linkedinCount = jobs.filter(j => j.platform === 'linkedin').length;
-  const founditCount = jobs.filter(j => j.platform === 'foundit').length;
+  const founditCount = jobs.filter(j => j.platform === 'foundit' || j.platform === 'glassdoor').length;
+  const shineCount = jobs.filter(j => j.platform === 'shine').length;
 
   const justNowCount = jobs.filter(j => j.postedHoursAgo <= 1.0).length;
   const oneDayCount = jobs.filter(j => j.postedHoursAgo > 1.0 && j.postedHoursAgo <= 24.0).length;
@@ -132,10 +133,20 @@ export const AnalyticsOverview: React.FC<AnalyticsOverviewProps> = ({
             <div className="space-y-1">
               <div className="flex justify-between text-xs font-semibold">
                 <span className="text-amber-400">Foundit (Monster) & Glassdoor</span>
-                <span className="text-slate-300">{founditCount + 2} jobs</span>
+                <span className="text-slate-300">{founditCount} jobs</span>
               </div>
               <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
-                <div className="bg-amber-500 h-full rounded-full transition-all duration-500" style={{ width: `${((founditCount + 2) / jobs.length) * 100}%` }} />
+                <div className="bg-amber-500 h-full rounded-full transition-all duration-500" style={{ width: `${(founditCount / jobs.length) * 100}%` }} />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs font-semibold">
+                <span className="text-fuchsia-400">Shine.com</span>
+                <span className="text-slate-300">{shineCount} jobs</span>
+              </div>
+              <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
+                <div className="bg-fuchsia-500 h-full rounded-full transition-all duration-500" style={{ width: `${(shineCount / jobs.length) * 100}%` }} />
               </div>
             </div>
           </div>

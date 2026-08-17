@@ -109,6 +109,7 @@ export const AutoApplyModal: React.FC<AutoApplyModalProps> = ({
       case 'naukri': return 'text-blue-400 border-blue-500/40 bg-blue-500/10';
       case 'indeed': return 'text-indigo-400 border-indigo-500/40 bg-indigo-500/10';
       case 'linkedin': return 'text-sky-400 border-sky-500/40 bg-sky-500/10';
+      case 'shine': return 'text-fuchsia-400 border-fuchsia-500/40 bg-fuchsia-500/10';
       default: return 'text-amber-400 border-amber-500/40 bg-amber-500/10';
     }
   };

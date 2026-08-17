@@ -30,6 +30,8 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
         return <span className="px-2 py-0.5 text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 rounded">Indeed</span>;
       case 'linkedin':
         return <span className="px-2 py-0.5 text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40 rounded">LinkedIn</span>;
+      case 'shine':
+        return <span className="px-2 py-0.5 text-[10px] font-bold bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/40 rounded">Shine</span>;
       default:
         return <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded">Foundit</span>;
     }

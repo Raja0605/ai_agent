@@ -19,7 +19,7 @@ import type {
   AiConfigState 
 } from './types/job';
 import { INITIAL_JOBS } from './data/mockJobs';
-import { filterJobs, getApplicationLogs, addApplicationLog } from './services/jobService';
+import { filterJobs, getApplicationLogs, addApplicationLog, sortByExperienceFit } from './services/jobService';
 import { getStoredResumes, getActiveResume } from './services/resumeService';
 import { getSavedAiConfig } from './config/aiConfig';
 
@@ -37,14 +37,15 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'jobs' | 'resumes' | 'tracker' | 'analytics'>('jobs');
   
   // Filter State
-  const [filter, setFilter] = useState<FilterState>({
+  const [filter, setFilter] = useState<FilterState>(() => ({
     searchQuery: 'DevOps',
     platform: 'all',
     freshness: 'all',
     experienceLevel: 'all',
+    resumeExperienceYears: getActiveResume().experienceYears,
     remoteOnly: false,
     minSalary: 0
-  });
+  }));
 
   // Stored Resumes & Active Default Resume
   const [resumes, setResumes] = useState<ResumeProfile[]>([]);
@@ -72,9 +73,18 @@ export default function App() {
     setApplicationLogs(logs);
   }, []);
 
-  // Filtered jobs list
+  // Keep the experience filter aligned with the selected resume profile
+  useEffect(() => {
+    setFilter(prev => (
+      prev.resumeExperienceYears === activeResume.experienceYears
+        ? prev
+        : { ...prev, resumeExperienceYears: activeResume.experienceYears }
+    ));
+  }, [activeResume.experienceYears]);
+
+  // Filtered jobs list, best experience fit first
   const filteredJobs = useMemo(() => {
-    return filterJobs(INITIAL_JOBS, filter);
+    return sortByExperienceFit(filterJobs(INITIAL_JOBS, filter), filter.resumeExperienceYears);
   }, [filter]);
 
   // Handle auto-apply trigger
@@ -125,6 +135,7 @@ export default function App() {
       platform: 'all',
       freshness: 'all',
       experienceLevel: 'all',
+      resumeExperienceYears: activeResume.experienceYears,
       remoteOnly: false,
       minSalary: 0
     });

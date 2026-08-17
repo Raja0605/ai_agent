@@ -12,7 +12,27 @@ import {
   Globe,
   Briefcase
 } from 'lucide-react';
-import type { JobPost, Platform, ResumeProfile } from '../types/job';
+import type { ExperienceFit, JobPost, Platform, ResumeProfile } from '../types/job';
+import { getExperienceFit, parseExperienceRange } from '../services/jobService';
+
+const EXPERIENCE_FIT_STYLES: Record<ExperienceFit, { label: string; className: string }> = {
+  eligible: {
+    label: 'Experience Match',
+    className: 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+  },
+  stretch: {
+    label: 'Stretch Role',
+    className: 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+  },
+  overqualified: {
+    label: 'Over-Qualified',
+    className: 'bg-indigo-500/15 border-indigo-500/40 text-indigo-300'
+  },
+  under_qualified: {
+    label: 'Needs More Exp',
+    className: 'bg-slate-800 border-slate-700 text-slate-400'
+  }
+};
 
 interface JobCardProps {
   job: JobPost;
@@ -55,6 +75,13 @@ export const JobCard: React.FC<JobCardProps> = ({
           <span className="px-2.5 py-1 text-[11px] font-bold bg-amber-500/15 border border-amber-500/30 text-amber-300 rounded-lg flex items-center gap-1.5 shadow-sm">
             <span className="w-2 h-2 rounded-full bg-amber-400" />
             Foundit
+          </span>
+        );
+      case 'shine':
+        return (
+          <span className="px-2.5 py-1 text-[11px] font-bold bg-fuchsia-500/15 border border-fuchsia-500/30 text-fuchsia-300 rounded-lg flex items-center gap-1.5 shadow-sm">
+            <span className="w-2 h-2 rounded-full bg-fuchsia-400" />
+            Shine.com
           </span>
         );
       default:
@@ -108,6 +135,9 @@ export const JobCard: React.FC<JobCardProps> = ({
   };
 
   const atsScore = job.atsMatchScore || 85;
+  const experienceFit = getExperienceFit(job, activeResume.experienceYears);
+  const experienceFitStyle = EXPERIENCE_FIT_STYLES[experienceFit];
+  const requiredExperience = parseExperienceRange(job.experienceRequired);
 
   return (
     <div className={`relative group bg-slate-900/70 hover:bg-slate-900/90 border transition-all duration-300 rounded-2xl p-6 flex flex-col justify-between space-y-4 shadow-xl ${
@@ -169,6 +199,12 @@ export const JobCard: React.FC<JobCardProps> = ({
           <span className="flex items-center gap-1 text-slate-400 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
             <Briefcase className="w-3.5 h-3.5 text-indigo-400" />
             Exp: {job.experienceRequired}
+          </span>
+          <span
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border font-semibold ${experienceFitStyle.className}`}
+            title={`Your profile has ${activeResume.experienceYears} yrs; this role asks for ${requiredExperience.min}-${requiredExperience.max === 99 ? '15+' : requiredExperience.max} yrs`}
+          >
+            {experienceFitStyle.label} • {activeResume.experienceYears} yrs
           </span>
         </div>
       </div>

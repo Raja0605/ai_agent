@@ -1,7 +1,97 @@
-import type { ApplicationLog, FilterState, FreshnessFilter, JobPost, Platform } from '../types/job';
+import type {
+  ApplicationLog,
+  ExperienceFilter,
+  ExperienceFit,
+  ExperienceRange,
+  FilterState,
+  FreshnessFilter,
+  JobPost,
+  Platform
+} from '../types/job';
 import { INITIAL_JOBS } from '../data/mockJobs';
 
 const APPLICATION_LOGS_KEY = 'job_pulse_application_logs';
+
+// Years of experience covered by each named seniority band.
+export const EXPERIENCE_BANDS: Record<Exclude<ExperienceFilter, 'all' | 'resume_match'>, ExperienceRange> = {
+  fresher: { min: 0, max: 1 },
+  entry: { min: 1, max: 3 },
+  mid: { min: 3, max: 6 },
+  senior: { min: 6, max: 10 },
+  lead: { min: 10, max: 99 }
+};
+
+// A candidate may apply up to this many years below the advertised minimum.
+const STRETCH_TOLERANCE_YEARS = 1;
+// Above this many years past the advertised maximum the profile is over-qualified.
+const OVERQUALIFIED_TOLERANCE_YEARS = 3;
+
+// Parses free text such as "3 - 6 yrs", "5+ years" or "Fresher" into a year range.
+export function parseExperienceRange(experienceRequired: string): ExperienceRange {
+  const text = experienceRequired.toLowerCase();
+
+  if (text.includes('fresher') || text.includes('intern')) {
+    return { min: 0, max: 1 };
+  }
+
+  const numbers = text.match(/\d+(\.\d+)?/g)?.map(Number) ?? [];
+
+  if (numbers.length === 0) {
+    return { min: 0, max: 99 };
+  }
+
+  if (numbers.length === 1) {
+    return { min: numbers[0], max: text.includes('+') ? 99 : numbers[0] };
+  }
+
+  return { min: Math.min(numbers[0], numbers[1]), max: Math.max(numbers[0], numbers[1]) };
+}
+
+export function rangesOverlap(a: ExperienceRange, b: ExperienceRange): boolean {
+  return a.min <= b.max && b.min <= a.max;
+}
+
+// Classifies a candidate's total experience against what a job asks for.
+export function getExperienceFit(job: JobPost, candidateYears: number): ExperienceFit {
+  const { min, max } = parseExperienceRange(job.experienceRequired);
+
+  if (candidateYears >= min && candidateYears <= max) return 'eligible';
+  if (candidateYears >= min - STRETCH_TOLERANCE_YEARS && candidateYears < min) return 'stretch';
+  if (candidateYears <= max + OVERQUALIFIED_TOLERANCE_YEARS && candidateYears > max) return 'overqualified';
+  return candidateYears < min ? 'under_qualified' : 'overqualified';
+}
+
+// Jobs a candidate can realistically land: within range, or a one year stretch.
+export function isExperienceMatch(job: JobPost, candidateYears: number): boolean {
+  const fit = getExperienceFit(job, candidateYears);
+  return fit === 'eligible' || fit === 'stretch';
+}
+
+export function matchesExperienceFilter(
+  job: JobPost,
+  experienceLevel: ExperienceFilter,
+  candidateYears: number
+): boolean {
+  if (experienceLevel === 'all') return true;
+  if (experienceLevel === 'resume_match') return isExperienceMatch(job, candidateYears);
+  return rangesOverlap(parseExperienceRange(job.experienceRequired), EXPERIENCE_BANDS[experienceLevel]);
+}
+
+// Best matches first: eligible, then stretch, then closest to the candidate's profile.
+export function sortByExperienceFit(jobs: JobPost[], candidateYears: number): JobPost[] {
+  const rank: Record<ExperienceFit, number> = {
+    eligible: 0,
+    stretch: 1,
+    overqualified: 2,
+    under_qualified: 3
+  };
+
+  return [...jobs].sort((a, b) => {
+    const diff = rank[getExperienceFit(a, candidateYears)] - rank[getExperienceFit(b, candidateYears)];
+    if (diff !== 0) return diff;
+    return a.postedHoursAgo - b.postedHoursAgo;
+  });
+}
 
 export function filterJobs(jobs: JobPost[], filter: FilterState): JobPost[] {
   return jobs.filter(job => {
@@ -29,7 +119,12 @@ export function filterJobs(jobs: JobPost[], filter: FilterState): JobPost[] {
       }
     }
 
-    // 4. Remote Filter
+    // 4. Experience Filter (seniority band or resume based eligibility)
+    if (!matchesExperienceFilter(job, filter.experienceLevel, filter.resumeExperienceYears)) {
+      return false;
+    }
+
+    // 5. Remote Filter
     if (filter.remoteOnly && !job.isRemote) {
       return false;
     }
