@@ -1,0 +1,89 @@
+{
+  "name": "Naukri/LinkedIn Job Scraper & API",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "scrape-jobs",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "1a2b3c4d-5e6f-7g8h-9i0j",
+      "name": "Webhook (API Entry)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [ 250, 300 ],
+      "webhookId": "job-pulse-scraper"
+    },
+    {
+      "parameters": {
+        "url": "=https://www.naukri.com/{{$json.query.search}}-jobs-in-{{$json.query.location}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2b3c4d5e-6f7g-8h9i-0j1a",
+      "name": "HTTP Request (Naukri)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [ 450, 300 ]
+    },
+    {
+      "parameters": {
+        "extractionValues": {
+          "values": [
+            {
+              "key": "title",
+              "cssSelector": "a.title",
+              "returnValue": "html"
+            },
+            {
+              "key": "company",
+              "cssSelector": "a.subTitle",
+              "returnValue": "html"
+            },
+            {
+              "key": "url",
+              "cssSelector": "a.title",
+              "returnValue": "attribute",
+              "attribute": "href"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3c4d5e6f-7g8h-9i0j-1a2b",
+      "name": "HTML Extract (Parse Jobs)",
+      "type": "n8n-nodes-base.htmlExtract",
+      "typeVersion": 1,
+      "position": [ 650, 300 ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Map extracted HTML to JSON array for React Frontend\nconst jobs = [];\nfor (let i = 0; i < $input.all().length; i++) {\n  jobs.push({\n    id: 'n8n-' + Math.random().toString(36).substr(2, 9),\n    title: $input.all()[i].json.title || 'Unknown',\n    company: $input.all()[i].json.company || 'Unknown',\n    platform: 'naukri',\n    applyUrl: $input.all()[i].json.url,\n    isRemote: false,\n    salary: 'Not Disclosed',\n    skillsRequired: ['Extracted via n8n']\n  });\n}\nreturn [{ json: { status: 'success', source: 'n8n', jobs: jobs } }];"
+      },
+      "id": "4d5e6f7g-8h9i-0j1a-2b3c",
+      "name": "Code (Format Response)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [ 850, 300 ]
+    }
+  ],
+  "connections": {
+    "Webhook (API Entry)": {
+      "main": [ [ { "node": "HTTP Request (Naukri)", "type": "main", "index": 0 } ] ]
+    },
+    "HTTP Request (Naukri)": {
+      "main": [ [ { "node": "HTML Extract (Parse Jobs)", "type": "main", "index": 0 } ] ]
+    },
+    "HTML Extract (Parse Jobs)": {
+      "main": [ [ { "node": "Code (Format Response)", "type": "main", "index": 0 } ] ]
+    }
+  }
+}

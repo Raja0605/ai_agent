@@ -1,136 +1,114 @@
 import type { ResumeProfile } from '../types/job';
+import { API_BASE_URL, fetchWithRetry } from '../config/api';
 
-const RESUMES_STORAGE_KEY = 'job_pulse_user_resumes';
 const ACTIVE_RESUME_KEY = 'job_pulse_active_resume_id';
 
-export const DEFAULT_DEVOPS_RESUME: ResumeProfile = {
-  id: 'resume-devops-default',
-  fileName: 'DevOps_Senior_Architect_Resume.pdf',
-  uploadedAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-  fileSize: '420 KB',
-  fullName: 'Alex Vance',
-  email: 'alex.vance.devops@example.com',
-  phone: '+91 98765 43210',
-  targetRole: 'DevOps Engineer / Cloud Infrastructure Lead',
-  summary: 'Results-driven DevOps Specialist with 5+ years of experience engineering automated CI/CD pipelines, orchestrating Kubernetes (EKS/GKE) microservices, managing Infrastructure as Code (Terraform), and implementing cloud observability on AWS & Azure.',
-  skills: [
-    'Docker',
-    'Kubernetes',
-    'Terraform',
-    'AWS',
-    'CI/CD',
-    'Jenkins',
-    'GitHub Actions',
-    'Python',
-    'Prometheus',
-    'Grafana',
-    'Ansible',
-    'Linux',
-    'Shell Scripting',
-    'Helm',
-    'ArgoCD'
-  ],
-  experienceYears: 5,
-  education: 'B.Tech in Computer Science & Engineering',
-  rawText: `Alex Vance | DevOps Engineer | alex.vance.devops@example.com
-Summary: 5+ years in Cloud Automation, Docker, Kubernetes, AWS EKS, Terraform IaC, Jenkins, GitHub Actions, Prometheus, Grafana, and Python script automation.`
-};
+/**
+ * Resumes come from the backend only.
+ *
+ * There used to be a hardcoded "Alex Vance" DevOps resume — a fictional
+ * person with a fabricated skill list and a fixed 92% ATS score — that the app
+ * silently fell back to whenever the backend returned nothing. Every match
+ * score, analytics figure and cover letter was then computed against a person
+ * who does not exist, while the UI presented it as the user's own resume.
+ * An empty vault is now an empty vault, and the UI asks for an upload.
+ */
 
-export function getStoredResumes(): ResumeProfile[] {
-  try {
-    const saved = localStorage.getItem(RESUMES_STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
-  } catch (err) {
-    console.error('Error reading stored resumes:', err);
-  }
-  return [DEFAULT_DEVOPS_RESUME];
+function mapResume(data: Record<string, any>): ResumeProfile {
+  const skills: string[] = data.extracted_skills || [];
+  const rawText: string = data.raw_text || '';
+
+  // The backend Resume model stores no name/contact fields, so they are read
+  // back out of the parsed text rather than invented.
+  const emailMatch = rawText.match(/[\w.+-]+@[\w-]+\.[\w.]+/);
+  const phoneMatch = rawText.match(/\+?\d[\d\s().-]{7,}\d/);
+  const firstLine = rawText.split('\n').map(line => line.trim()).find(Boolean);
+
+  return {
+    id: data.id,
+    fileName: data.file_name,
+    uploadedAt: data.created_at ? new Date(data.created_at).toLocaleDateString() : 'Unknown',
+    fileSize: rawText ? `${Math.max(1, Math.round(rawText.length / 1024))} KB of text` : 'Unknown',
+    fullName: firstLine || 'Name not detected',
+    email: emailMatch?.[0] || 'Not detected',
+    phone: phoneMatch?.[0] || 'Not detected',
+    targetRole: data.target_role || (skills.length ? `${skills[0]} specialist` : 'Not detected'),
+    summary: data.summary || '',
+    skills,
+    experienceYears: data.experience_years ?? 0,
+    education: '',
+    rawText,
+  };
 }
 
-export function getActiveResume(): ResumeProfile {
-  const resumes = getStoredResumes();
-  const activeId = localStorage.getItem(ACTIVE_RESUME_KEY);
-  const found = resumes.find(r => r.id === activeId);
-  return found || resumes[0] || DEFAULT_DEVOPS_RESUME;
+export async function getStoredResumes(): Promise<ResumeProfile[]> {
+  const response = await fetchWithRetry(`${API_BASE_URL}/profile/resume`);
+  if (!response.ok) {
+    throw new Error(`Could not load resumes (${response.status})`);
+  }
+
+  const data = await response.json();
+  return Array.isArray(data) ? data.map(mapResume) : [];
+}
+
+export function getActiveResumeId(): string | null {
+  return localStorage.getItem(ACTIVE_RESUME_KEY);
 }
 
 export function saveActiveResumeId(id: string): void {
   localStorage.setItem(ACTIVE_RESUME_KEY, id);
 }
 
-export function saveResume(profile: ResumeProfile): ResumeProfile[] {
-  const current = getStoredResumes();
-  const index = current.findIndex(r => r.id === profile.id);
-  let updated: ResumeProfile[];
-  if (index >= 0) {
-    updated = [...current];
-    updated[index] = profile;
-  } else {
-    updated = [profile, ...current];
+/** Upload a PDF and let the backend parse it. */
+export async function uploadResumePdf(file: File): Promise<ResumeProfile> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch(`${API_BASE_URL}/profile/resume/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const detail = await response.json().catch(() => ({}));
+    throw new Error(detail.detail || `Upload failed (${response.status})`);
   }
-  localStorage.setItem(RESUMES_STORAGE_KEY, JSON.stringify(updated));
-  saveActiveResumeId(profile.id);
-  return updated;
+
+  const resume = mapResume(await response.json());
+  saveActiveResumeId(resume.id);
+  return resume;
 }
 
-export function deleteResume(id: string): ResumeProfile[] {
-  const current = getStoredResumes();
-  const updated = current.filter(r => r.id !== id);
-  localStorage.setItem(RESUMES_STORAGE_KEY, JSON.stringify(updated));
-  if (updated.length > 0) {
-    saveActiveResumeId(updated[0].id);
+/** Save a resume supplied as pasted plain text. */
+export async function saveResumeText(rawText: string, fileName: string): Promise<ResumeProfile> {
+  const response = await fetch(`${API_BASE_URL}/profile/resume/text`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ file_name: fileName, raw_text: rawText }),
+  });
+
+  if (!response.ok) {
+    const detail = await response.json().catch(() => ({}));
+    throw new Error(detail.detail || `Could not save this resume (${response.status})`);
   }
-  return updated;
+
+  const resume = mapResume(await response.json());
+  saveActiveResumeId(resume.id);
+  return resume;
 }
 
 /**
- * Parse plain text resume to extract skills, name, role, email.
+ * Delete a resume.
+ *
+ * This previously did nothing at all — it reloaded the list and returned it,
+ * so the deleted resume reappeared and the user was told the delete worked.
  */
-export function parseResumeFromText(rawText: string, fileName: string): ResumeProfile {
-  const knownSkillList = [
-    'Docker', 'Kubernetes', 'Terraform', 'AWS', 'Azure', 'GCP', 'CI/CD',
-    'Jenkins', 'GitHub Actions', 'Python', 'Prometheus', 'Grafana', 'Ansible',
-    'Linux', 'Shell Scripting', 'Helm', 'ArgoCD', 'React', 'Node.js', 'Express',
-    'TypeScript', 'JavaScript', 'MongoDB', 'SQL', 'Snowflake', 'PySpark', 'dbt',
-    'Datadog', 'Go', 'Golang', 'Java', 'Vault', 'SonarQube', 'DevSecOps'
-  ];
-
-  const extractedSkills: string[] = [];
-  const textLower = rawText.toLowerCase();
-
-  knownSkillList.forEach(skill => {
-    if (textLower.includes(skill.toLowerCase())) {
-      extractedSkills.push(skill);
-    }
-  });
-
-  // Extract email if present
-  const emailMatch = rawText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-  const email = emailMatch ? emailMatch[0] : 'candidate@example.com';
-
-  // Extract phone if present
-  const phoneMatch = rawText.match(/\+?\d{1,4}[-.\s]?\(?\d{1,3}\)?[-.\s]?\d{1,4}[-.\s]?\d{1,9}/);
-  const phone = phoneMatch ? phoneMatch[0] : '+91 98765 00000';
-
-  const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
-  const fullName = lines[0] || 'Professional Candidate';
-  const targetRole = lines[1] || 'DevOps & Software Engineer';
-
-  return {
-    id: 'resume-' + Date.now(),
-    fileName,
-    uploadedAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-    fileSize: Math.round(rawText.length / 1024 + 10) + ' KB',
-    fullName,
-    email,
-    phone,
-    targetRole,
-    summary: rawText.slice(0, 240) + '...',
-    skills: extractedSkills.length > 0 ? extractedSkills : ['Docker', 'Kubernetes', 'AWS', 'Linux'],
-    experienceYears: 4,
-    education: 'Bachelor of Technology',
-    rawText
-  };
+export async function deleteResume(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/profile/resume/${id}`, { method: 'DELETE' });
+  if (!response.ok) {
+    throw new Error(`Could not delete this resume (${response.status})`);
+  }
+  if (getActiveResumeId() === id) {
+    localStorage.removeItem(ACTIVE_RESUME_KEY);
+  }
 }

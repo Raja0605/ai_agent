@@ -5,4 +5,17 @@ dist
 *.log
 .vscode
 .idea
-.env.local
+.env
+.env.*
+!.env.example
+*.pdf
+
+# This file covers the FRONTEND image, whose build context is the repo root.
+# The backend has its own backend/.dockerignore for its own context.
+backend/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.db

@@ -1,0 +1,23 @@
+fastapi==0.109.2
+uvicorn==0.27.1
+sqlalchemy==2.0.25
+pydantic==2.6.1
+pydantic-settings==2.1.0
+alembic==1.13.1
+python-dotenv==1.0.1
+httpx==0.27.0
+pypdf==4.0.1
+python-multipart==0.0.9
+
+# Database drivers. asyncpg backs the Postgres URL used by docker-compose;
+# aiosqlite backs the SQLite URL that backend/.env.example defaults to for
+# running without a database server. Both are needed — a local setup following
+# the SQLite path failed at startup with "Can't load plugin:
+# sqlalchemy.dialects:sqlite.aiosqlite" when only asyncpg was installed.
+asyncpg==0.29.0
+aiosqlite==0.20.0
+
+# Test suite. Small, and it means `pytest` works straight after
+# `pip install -r requirements.txt` rather than needing a second install step.
+pytest==8.3.4
+pytest-asyncio==0.25.2

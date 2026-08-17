@@ -1,160 +1,208 @@
-import type { AiConfigState, JobPost, ResumeProfile } from '../types/job';
-
-export interface AtsAnalysisResult {
-  score: number;
-  matchedSkills: string[];
-  missingSkills: string[];
-  summary: string;
-  recommendations: string[];
-}
+import type {
+  AiRuntimeConfig,
+  AtsCheckResult,
+  JobPost,
+  MatchResult,
+  ResumeProfile,
+  TailorResult,
+} from '../types/job';
+import { API_BASE_URL, fetchWithRetry } from '../config/api';
 
 /**
- * Perform ATS resume-to-job matching calculation.
- * If AI is enabled and API key is set, attempts real LLM matching via Gemini / OpenAI.
- * Otherwise uses deterministic keyword & semantic skill vector matching.
+ * Score bands.
+ *
+ * The detail panel used to render `Strong Match (${score}%)` unconditionally,
+ * in emerald, for every job — including a 12% match. A score is only useful
+ * if its label changes with it.
  */
-export async function analyzeAtsMatch(
-  resume: ResumeProfile,
-  job: JobPost,
-  config: AiConfigState
-): Promise<AtsAnalysisResult> {
-  const jobSkills = job.skillsRequired.map(s => s.toLowerCase());
-  const resumeSkills = resume.skills.map(s => s.toLowerCase());
+export type ScoreBand = {
+  label: string;
+  /** Tailwind classes for text / background / border, in that order. */
+  tone: { text: string; bg: string; border: string };
+};
 
-  // Local fallback smart matcher logic
-  const matchedSkills: string[] = [];
-  const missingSkills: string[] = [];
-
-  job.skillsRequired.forEach(skill => {
-    const sLower = skill.toLowerCase();
-    const isMatched = resumeSkills.some(rs => rs.includes(sLower) || sLower.includes(rs)) ||
-      (resume.rawText && resume.rawText.toLowerCase().includes(sLower));
-
-    if (isMatched) {
-      matchedSkills.push(skill);
-    } else {
-      missingSkills.push(skill);
-    }
-  });
-
-  const totalRequired = job.skillsRequired.length || 1;
-  const matchRatio = matchedSkills.length / totalRequired;
-  
-  // Calculate dynamic ATS score weighted by skill overlap & experience alignment
-  let score = Math.round(matchRatio * 75 + Math.min(25, resume.experienceYears * 4));
-  if (score > 98) score = 98;
-  if (score < 35 && matchedSkills.length > 0) score = 42;
-
-  // Try real Gemini API call if Google key is available
-  if (config.useAiForMatching && config.googleApiKey && config.googleApiKey.startsWith('AIza')) {
-    try {
-      const prompt = `You are an expert ATS (Applicant Tracking System) Screener.
-Compare this Candidate Resume against the Target Job Description.
-
-TARGET JOB: ${job.title} at ${job.company}
-REQUIRED SKILLS: ${job.skillsRequired.join(', ')}
-JOB DESCRIPTION: ${job.description}
-
-CANDIDATE PROFILE: ${resume.fullName} (${resume.targetRole})
-CANDIDATE SKILLS: ${resume.skills.join(', ')}
-RESUME SUMMARY: ${resume.summary}
-
-Return ONLY a JSON object with this exact format:
-{
-  "score": number between 40 and 99,
-  "matchedSkills": ["skill1", "skill2"],
-  "missingSkills": ["skill3"],
-  "summary": "Brief 1-sentence match rationale",
-  "recommendations": ["Recommendation 1"]
-}`;
-
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${config.googleModel}:generateContent?key=${config.googleApiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }]
-          })
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          return {
-            score: parsed.score || score,
-            matchedSkills: parsed.matchedSkills || matchedSkills,
-            missingSkills: parsed.missingSkills || missingSkills,
-            summary: parsed.summary || `${matchedSkills.length} of ${job.skillsRequired.length} key requirements matched.`,
-            recommendations: parsed.recommendations || [`Highlight experience with ${missingSkills.slice(0, 2).join(', ')}`]
-          };
-        }
-      }
-    } catch (err) {
-      console.warn('Google Gemini API match call fallback to local matcher:', err);
-    }
+export function scoreBand(score: number): ScoreBand {
+  if (score >= 80) {
+    return {
+      label: 'Strong match',
+      tone: { text: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30' },
+    };
   }
-
+  if (score >= 60) {
+    return {
+      label: 'Good match',
+      tone: { text: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/30' },
+    };
+  }
+  if (score >= 40) {
+    return {
+      label: 'Partial match',
+      tone: { text: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/30' },
+    };
+  }
   return {
-    score,
-    matchedSkills,
-    missingSkills,
-    summary: `${matchedSkills.length} of ${job.skillsRequired.length} key requirements matched.`,
-    recommendations: missingSkills.length > 0 
-      ? [`Consider adding experience with ${missingSkills.slice(0, 2).join(', ')} to boost your score.`]
-      : ['Strong overall skill alignment for this role!']
+    label: 'Weak match',
+    tone: { text: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/30' },
   };
 }
 
+function toResumePayload(resume: ResumeProfile) {
+  return {
+    full_name: resume.fullName,
+    target_role: resume.targetRole,
+    summary: resume.summary,
+    skills: resume.skills,
+    experience_years: resume.experienceYears,
+    raw_text: resume.rawText,
+  };
+}
+
+function toMatchResult(data: Record<string, any>): MatchResult {
+  return {
+    score: data.score,
+    matchedSkills: data.matched_skills || [],
+    missingSkills: data.missing_skills || [],
+    summary: data.summary || '',
+    recommendations: data.recommendations || [],
+    reason: data.reason,
+    method: data.method === 'ai' ? 'ai' : 'heuristic',
+    confidence: data.confidence || 'medium',
+  };
+}
+
+export async function getAiConfig(): Promise<AiRuntimeConfig> {
+  const response = await fetchWithRetry(`${API_BASE_URL}/ai/config`);
+  if (!response.ok) throw new Error(`Could not read AI config (${response.status})`);
+
+  const data = await response.json();
+  return {
+    provider: data.provider,
+    providerName: data.provider_name,
+    model: data.model,
+    configured: Boolean(data.configured),
+    activeMethod: data.active_method === 'ai' ? 'ai' : 'heuristic',
+  };
+}
+
+/** Full evaluation of one job — uses the model when one is configured. */
+export async function analyzeMatch(resume: ResumeProfile, job: JobPost): Promise<MatchResult> {
+  const response = await fetch(`${API_BASE_URL}/ai/match`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      job_id: job.id,
+      job_title: job.title,
+      job_description: job.description,
+      job_skills: job.skillsRequired,
+      company: job.company,
+      resume: toResumePayload(resume),
+    }),
+  });
+
+  if (!response.ok) throw new Error(`Match evaluation failed (${response.status})`);
+  return toMatchResult(await response.json());
+}
+
 /**
- * Generate a personalized cover letter pitch for auto-applying to a job portal.
+ * Score a whole result page in one request.
+ *
+ * Deterministic on the server by design — one model call per card would be
+ * slow and expensive for a number whose only job is to rank a list. The
+ * result carries `method: 'heuristic'` and the UI labels it as such.
  */
+export async function matchJobsBatch(
+  resume: ResumeProfile,
+  jobs: JobPost[]
+): Promise<Map<string, MatchResult>> {
+  if (jobs.length === 0) return new Map();
+
+  const response = await fetch(`${API_BASE_URL}/ai/match/batch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      resume: toResumePayload(resume),
+      jobs: jobs.map(job => ({
+        job_id: job.id,
+        job_title: job.title,
+        job_description: job.description,
+        job_skills: job.skillsRequired,
+        company: job.company,
+      })),
+    }),
+  });
+
+  if (!response.ok) throw new Error(`Batch scoring failed (${response.status})`);
+
+  const data = await response.json();
+  const results = new Map<string, MatchResult>();
+  (data.items || []).forEach((item: Record<string, any>) => {
+    results.set(item.job_id, toMatchResult(item.result));
+  });
+  return results;
+}
+
 export async function generateCoverLetter(
   resume: ResumeProfile,
-  job: JobPost,
-  config: AiConfigState
-): Promise<string> {
-  const defaultNote = `Dear Hiring Manager at ${job.company},
+  job: JobPost
+): Promise<{ content: string; method: string }> {
+  const response = await fetch(`${API_BASE_URL}/ai/cover-letter`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      job_id: job.id,
+      job_title: job.title,
+      company: job.company,
+      job_skills: job.skillsRequired,
+      resume: toResumePayload(resume),
+    }),
+  });
 
-I am writing to express my strong interest in the ${job.title} role. With over ${resume.experienceYears} years of experience in ${resume.skills.slice(0, 4).join(', ')}, I have successfully delivered high-reliability cloud and software solutions aligned with your stack.
+  if (!response.ok) throw new Error(`Cover letter generation failed (${response.status})`);
 
-My expertise directly covers your core requirements including ${job.skillsRequired.slice(0, 3).join(', ')}. I look forward to contributing to ${job.company}'s engineering goals.
+  const data = await response.json();
+  return { content: data.content, method: data.method };
+}
 
-Best regards,
-${resume.fullName}
-${resume.email} | ${resume.phone}`;
+export async function tailorResume(resume: ResumeProfile, job: JobPost): Promise<TailorResult> {
+  const response = await fetch(`${API_BASE_URL}/ai/tailor`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      job_id: job.id,
+      job_title: job.title,
+      company: job.company,
+      job_description: job.description,
+      job_skills: job.skillsRequired,
+      resume: toResumePayload(resume),
+    }),
+  });
 
-  if (config.useAiForCoverLetter && config.googleApiKey && config.googleApiKey.startsWith('AIza')) {
-    try {
-      const prompt = `Write a short 3-paragraph compelling job application cover note for candidate ${resume.fullName} applying for ${job.title} at ${job.company}.
-Candidate Skills: ${resume.skills.join(', ')}
-Candidate Summary: ${resume.summary}
-Job Requirements: ${job.skillsRequired.join(', ')}`;
+  if (!response.ok) throw new Error(`Resume tailoring failed (${response.status})`);
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${config.googleModel}:generateContent?key=${config.googleApiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }]
-          })
-        }
-      );
+  const data = await response.json();
+  return {
+    tailoredSummary: data.tailored_summary,
+    prioritizedSkills: data.prioritized_skills || [],
+    keywordsToAdd: data.keywords_to_add || [],
+    bulletSuggestions: data.bullet_suggestions || [],
+    method: data.method === 'ai' ? 'ai' : 'heuristic',
+  };
+}
 
-      if (response.ok) {
-        const data = await response.json();
-        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) return text.trim();
-      }
-    } catch (err) {
-      console.warn('Gemini Cover Letter fallback to default note template', err);
-    }
-  }
+export async function checkAts(resume: ResumeProfile): Promise<AtsCheckResult> {
+  const response = await fetch(`${API_BASE_URL}/ai/ats-check`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ resume: toResumePayload(resume) }),
+  });
 
-  return defaultNote;
+  if (!response.ok) throw new Error(`ATS check failed (${response.status})`);
+
+  const data = await response.json();
+  return {
+    score: data.score,
+    issues: data.issues || [],
+    detectedSections: data.detected_sections || [],
+    wordCount: data.word_count || 0,
+  };
 }

@@ -1,0 +1,14 @@
+# The backend image builds from ./backend, so the repo-root .dockerignore does
+# not apply here — this file is what keeps the virtualenv, local databases and
+# test artefacts out of the image.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+tests/
+*.db
+.env
+.env.*
+!.env.example
+*.log
