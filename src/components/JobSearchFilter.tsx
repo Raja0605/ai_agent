@@ -9,9 +9,10 @@ import {
   Filter, 
   X, 
   Sparkles,
-  Building2
+  Building2,
+  Briefcase
 } from 'lucide-react';
-import type { FilterState, FreshnessFilter, Platform } from '../types/job';
+import type { ExperienceFilter, FilterState, FreshnessFilter, Platform } from '../types/job';
 
 interface JobSearchFilterProps {
   filter: FilterState;
@@ -19,6 +20,15 @@ interface JobSearchFilterProps {
   totalMatching: number;
   onReset: () => void;
 }
+
+const EXPERIENCE_OPTIONS: { value: ExperienceFilter; label: string }[] = [
+  { value: 'all', label: 'Any Experience' },
+  { value: 'fresher', label: 'Fresher (0-1 yrs)' },
+  { value: 'entry', label: 'Entry (1-3 yrs)' },
+  { value: 'mid', label: 'Mid (3-6 yrs)' },
+  { value: 'senior', label: 'Senior (6-10 yrs)' },
+  { value: 'lead', label: 'Lead (10+ yrs)' }
+];
 
 const POPULAR_ROLES = [
   'DevOps Engineer',
@@ -46,6 +56,10 @@ export const JobSearchFilter: React.FC<JobSearchFilterProps> = ({
 
   const handleFreshnessChange = (freshness: FreshnessFilter) => {
     setFilter(prev => ({ ...prev, freshness }));
+  };
+
+  const handleExperienceChange = (experienceLevel: ExperienceFilter) => {
+    setFilter(prev => ({ ...prev, experienceLevel }));
   };
 
   const selectRolePreset = (role: string) => {
@@ -91,7 +105,7 @@ export const JobSearchFilter: React.FC<JobSearchFilterProps> = ({
         </button>
 
         {/* Reset Filter Button */}
-        {(filter.searchQuery || filter.platform !== 'all' || filter.freshness !== 'all' || filter.remoteOnly) && (
+        {(filter.searchQuery || filter.platform !== 'all' || filter.freshness !== 'all' || filter.experienceLevel !== 'all' || filter.remoteOnly) && (
           <button
             onClick={onReset}
             className="flex items-center gap-1.5 px-3 py-3 rounded-xl border border-slate-800 bg-slate-950/60 text-slate-400 hover:text-slate-200 text-xs transition-all"
@@ -189,6 +203,17 @@ export const JobSearchFilter: React.FC<JobSearchFilterProps> = ({
               <span className="w-2 h-2 rounded-full bg-amber-400" />
               Foundit (Monster)
             </button>
+            <button
+              onClick={() => handlePlatformChange('shine')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all flex items-center gap-1.5 ${
+                filter.platform === 'shine'
+                  ? 'bg-fuchsia-600/30 border-fuchsia-500 text-fuchsia-300 font-bold shadow-md shadow-fuchsia-600/20'
+                  : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-fuchsia-400" />
+              Shine.com
+            </button>
           </div>
         </div>
 
@@ -264,6 +289,49 @@ export const JobSearchFilter: React.FC<JobSearchFilterProps> = ({
           </div>
         </div>
 
+      </div>
+
+      <div className="h-[1px] bg-slate-800/60" />
+
+      {/* 4. Experience Filter (seniority bands + resume based eligibility) */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+            <Briefcase className="w-3.5 h-3.5 text-fuchsia-400" />
+            Experience Level
+          </label>
+          <span className="text-[11px] text-slate-400">
+            Your profile: <span className="font-semibold text-fuchsia-300">{filter.resumeExperienceYears} yrs</span>
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <button
+            onClick={() => handleExperienceChange('resume_match')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1.5 ${
+              filter.experienceLevel === 'resume_match'
+                ? 'bg-fuchsia-500/20 border-fuchsia-400 text-fuchsia-300 shadow-md shadow-fuchsia-500/20'
+                : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Sparkles className="w-3 h-3" />
+            Jobs I Can Get ({filter.resumeExperienceYears} yrs)
+          </button>
+
+          {EXPERIENCE_OPTIONS.map(option => (
+            <button
+              key={option.value}
+              onClick={() => handleExperienceChange(option.value)}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                filter.experienceLevel === option.value
+                  ? 'bg-slate-800 border-slate-700 text-white font-bold'
+                  : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
       </div>
 
     </div>

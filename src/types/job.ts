@@ -1,6 +1,22 @@
-export type Platform = 'all' | 'naukri' | 'indeed' | 'linkedin' | 'foundit' | 'glassdoor';
+export type Platform = 'all' | 'naukri' | 'indeed' | 'linkedin' | 'foundit' | 'glassdoor' | 'shine';
 
 export type FreshnessFilter = 'all' | 'just_now' | '1_day' | '2_days' | '3_days' | 'past_week';
+
+export type ExperienceFilter =
+  | 'all'
+  | 'resume_match'
+  | 'fresher'
+  | 'entry'
+  | 'mid'
+  | 'senior'
+  | 'lead';
+
+export type ExperienceFit = 'eligible' | 'stretch' | 'overqualified' | 'under_qualified';
+
+export interface ExperienceRange {
+  min: number;
+  max: number;
+}
 
 export interface JobPost {
   id: string;
@@ -68,7 +84,8 @@ export interface FilterState {
   searchQuery: string;
   platform: Platform;
   freshness: FreshnessFilter;
-  experienceLevel: string; // 'all' | 'entry' | 'mid' | 'senior'
+  experienceLevel: ExperienceFilter;
+  resumeExperienceYears: number;
   remoteOnly: boolean;
   minSalary: number;
 }
