@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Briefcase, CheckCircle2, Cpu, FileText, Repeat, Zap } from 'lucide-react';
+import { AlertTriangle, Briefcase, CheckCircle2, Cpu, FileText, Menu, Repeat, Zap } from 'lucide-react';
 
 import type {
   AiRuntimeConfig,
@@ -19,9 +19,8 @@ import {
 } from './services/jobService';
 import { getAiConfig, matchJobsBatch } from './services/aiService';
 import { getActiveResumeId, getStoredResumes, saveActiveResumeId } from './services/resumeService';
-import { listLoops } from './services/loopService';
 
-import { Header, type Tab } from './components/Header';
+import { type Tab } from './components/Header';
 import { JobSearchFilter } from './components/JobSearchFilter';
 import { JobCard } from './components/JobCard';
 import { ResumeVault } from './components/ResumeVault';
@@ -30,6 +29,7 @@ import { AiStatusModal } from './components/AiStatusModal';
 import { ApplicationTracker } from './components/ApplicationTracker';
 import { AnalyticsOverview } from './components/AnalyticsOverview';
 import { LoopsPanel } from './components/LoopsPanel';
+import { Sidebar } from './components/Sidebar';
 import './App.css';
 
 const EMPTY_FILTER: FilterState = {
@@ -45,6 +45,7 @@ const EMPTY_FILTER: FilterState = {
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('jobs');
   const [filter, setFilter] = useState<FilterState>({ ...EMPTY_FILTER, searchQuery: 'DevOps' });
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [jobs, setJobs] = useState<JobPost[]>([]);
   const [isFetching, setIsFetching] = useState(false);
@@ -55,10 +56,7 @@ export default function App() {
   const [activeResume, setActiveResume] = useState<ResumeProfile | null>(null);
   const [applicationLogs, setApplicationLogs] = useState<ApplicationLog[]>([]);
   const [aiConfig, setAiConfig] = useState<AiRuntimeConfig | null>(null);
-  const [newLoopMatches, setNewLoopMatches] = useState(0);
 
-  // Resume management is a full tab rather than a modal now, so the header
-  // button just switches tabs.
   const [isAiStatusOpen, setIsAiStatusOpen] = useState(false);
   const [openJob, setOpenJob] = useState<JobPost | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -73,23 +71,12 @@ export default function App() {
     if (active && active.id !== savedId) saveActiveResumeId(active.id);
   }, []);
 
-  const refreshLoopBadge = useCallback(async () => {
-    try {
-      const loops = await listLoops();
-      setNewLoopMatches(loops.reduce((sum, loop) => sum + loop.newMatches, 0));
-    } catch {
-      // The badge is decoration; a failure here must not break the shell.
-      setNewLoopMatches(0);
-    }
-  }, []);
-
   useEffect(() => {
     // Each of these is independent, and one failing must not blank the others.
     void loadResumes().catch(err => setError(err.message));
     void getApplicationLogs().then(setApplicationLogs).catch(() => undefined);
     void getAiConfig().then(setAiConfig).catch(() => setAiConfig(null));
-    void refreshLoopBadge();
-  }, [loadResumes, refreshLoopBadge]);
+  }, [loadResumes]);
 
   const filteredJobs = useMemo(() => filterJobs(jobs, filter), [jobs, filter]);
   const sources = useMemo(() => availableSources(jobs), [jobs]);
@@ -157,27 +144,42 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-black">
-      <Header
+    <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col font-sans">
+      <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        activeResume={activeResume}
+        isOpen={sidebarOpen}
+        onToggle={() => setSidebarOpen(!sidebarOpen)}
         appliedCount={applicationLogs.length}
-        totalJobsCount={jobs.length}
-        newLoopMatches={newLoopMatches}
         aiConfig={aiConfig}
-        onOpenResumeModal={() => setActiveTab('resumes')}
-        onOpenAiStatus={() => setIsAiStatusOpen(true)}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-8 space-y-6">
+      <div className="lg:ml-64 flex flex-col min-h-screen">
+        {/* Mobile header */}
+        <header className="lg:hidden flex items-center justify-between p-4 bg-white border-b border-gray-200">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            <Menu className="w-6 h-6 text-gray-600" />
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+              <Briefcase className="w-5 h-5 text-white" />
+            </div>
+            <span className="font-bold text-gray-900">JobPulse</span>
+          </div>
+          <div className="w-10" />
+        </header>
+
+        <main className="flex-1 px-4 lg:px-8 py-6 lg:py-8 space-y-6">
         {error && (
-          <div className="flex items-start justify-between gap-3 p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300">
+          <div className="flex items-start justify-between gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700">
             <span className="flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
               {error}
             </span>
-            <button onClick={() => setError(null)} className="text-rose-400 hover:text-rose-200 font-bold">
+            <button onClick={() => setError(null)} className="text-red-600 hover:text-red-800 font-semibold">
               Dismiss
             </button>
           </div>
@@ -185,20 +187,18 @@ export default function App() {
 
         {activeTab === 'jobs' && (
           <div className="space-y-6 animate-fadeIn">
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-cyan-950/80 via-slate-900 to-indigo-950/80 border border-slate-800 p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
               <div className="space-y-3 z-10">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="px-3 py-1 text-xs font-bold bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 rounded-full flex items-center gap-1.5">
+                  <span className="px-3 py-1 text-xs font-bold bg-white/20 border border-white/30 text-white rounded-full flex items-center gap-1.5">
                     <Zap className="w-3.5 h-3.5" />
                     Live aggregation
                   </span>
-                  {/* States which method is scoring, instead of a model name
-                      typed into a settings box that never reached the server. */}
                   <span
                     className={`px-3 py-1 text-xs font-bold rounded-full flex items-center gap-1.5 border ${
                       aiConfig?.configured
-                        ? 'bg-indigo-500/15 border-indigo-500/30 text-indigo-300'
-                        : 'bg-slate-800 border-slate-700 text-slate-400'
+                        ? 'bg-white/20 border-white/30 text-white'
+                        : 'bg-white/10 border-white/20 text-white/80'
                     }`}
                   >
                     <Cpu className="w-3.5 h-3.5" />
@@ -206,53 +206,51 @@ export default function App() {
                   </span>
                 </div>
 
-                {/* Was "Fetch Latest Jobs from Naukri & Indeed" — neither has
-                    ever been a source. */}
                 <h2 className="text-2xl md:text-3xl font-extrabold text-white">
                   Jobs from{' '}
-                  <span className="bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-400 bg-clip-text text-transparent">
-                    Remotive &amp; Adzuna
+                  <span className="text-white/90">
+                    Naukri, LinkedIn, Indeed &amp; More
                   </span>
                 </h2>
-                <p className="text-xs md:text-sm text-slate-300 max-w-2xl">
+                <p className="text-xs md:text-sm text-white/90 max-w-2xl">
                   Aggregated, deduplicated across boards, and scored against your resume.
                   You review every application before it is sent — this app never submits on your behalf.
                 </p>
               </div>
 
-              <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 min-w-[240px] space-y-2 z-10">
+              <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4 min-w-[240px] space-y-2 z-10">
                 <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-slate-400 font-mono uppercase tracking-wider">Active resume</span>
+                  <span className="text-white/80 font-mono uppercase tracking-wider">Active resume</span>
                   {activeResume ? (
-                    <span className="text-emerald-400 flex items-center gap-1">
+                    <span className="text-green-300 flex items-center gap-1">
                       <CheckCircle2 className="w-3 h-3" /> Ready
                     </span>
                   ) : (
-                    <span className="text-amber-400">Missing</span>
+                    <span className="text-amber-300">Missing</span>
                   )}
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                  <div className="p-2 rounded-lg bg-white/20 text-white">
                     <FileText className="w-5 h-5" />
                   </div>
                   <div className="truncate">
-                    <span className="text-xs font-bold text-slate-100 block truncate">
+                    <span className="text-xs font-bold text-white block truncate">
                       {activeResume?.fileName ?? 'No resume uploaded'}
                     </span>
-                    <span className="text-[11px] text-slate-400 block truncate">
+                    <span className="text-[11px] text-white/80 block truncate">
                       {activeResume ? `${activeResume.skills.length} skills detected` : 'Scoring unavailable'}
                     </span>
                   </div>
                 </div>
                 <button
                   onClick={() => setActiveTab('resumes')}
-                  className="w-full py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-[11px] text-cyan-300 font-semibold transition-all"
+                  className="w-full py-1.5 rounded-lg bg-white hover:bg-white/90 text-blue-600 text-[11px] font-semibold transition-all"
                 >
                   {activeResume ? 'Manage resumes' : 'Upload a resume'}
                 </button>
               </div>
 
-              <div className="absolute -right-20 -bottom-20 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute -right-20 -bottom-20 w-80 h-80 bg-white/10 rounded-full blur-3xl pointer-events-none" />
             </div>
 
             <JobSearchFilter
@@ -267,26 +265,26 @@ export default function App() {
             />
 
             {filteredJobs.length === 0 ? (
-              <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-16 text-center space-y-4">
-                <Briefcase className="w-12 h-12 text-slate-600 mx-auto" />
-                <h3 className="text-base font-bold text-slate-200">
+              <div className="bg-white border border-gray-200 rounded-2xl p-16 text-center space-y-4">
+                <Briefcase className="w-12 h-12 text-gray-400 mx-auto" />
+                <h3 className="text-base font-semibold text-gray-900">
                   {!hasSearched
                     ? 'Search to aggregate live jobs'
                     : jobs.length === 0
                       ? 'No jobs came back for that search'
                       : 'No jobs match your current filters'}
                 </h3>
-                <p className="text-xs text-slate-400 max-w-md mx-auto">
+                <p className="text-xs text-gray-600 max-w-md mx-auto">
                   {!hasSearched
-                    ? 'Enter a role and press Search. Results are fetched live from Remotive and Adzuna, then merged.'
+                    ? 'Enter a role and press Search. Results are fetched live from Naukri, LinkedIn, Indeed, and more.'
                     : jobs.length === 0
-                      ? 'Try a broader role, clear the location, or check that the Adzuna credentials are set on the server.'
+                      ? 'Try a broader role, clear the location, or check that the JSearch credentials are set on the server.'
                       : 'Your source or freshness filter is excluding everything that came back.'}
                 </p>
                 {hasSearched && jobs.length > 0 && (
                   <button
                     onClick={() => setFilter(prev => ({ ...prev, platform: 'all', freshness: 'all' }))}
-                    className="px-5 py-2.5 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 text-xs font-bold hover:bg-cyan-500/30 transition-all"
+                    className="px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-all"
                   >
                     Clear filters
                   </button>
@@ -315,7 +313,6 @@ export default function App() {
               activeResume={activeResume}
               onOpenJob={job => {
                 setOpenJob(job);
-                void refreshLoopBadge();
               }}
             />
           </div>
@@ -345,7 +342,7 @@ export default function App() {
         )}
       </main>
 
-      <footer className="border-t border-slate-900 bg-slate-950 py-6 text-center text-xs text-slate-500">
+      <footer className="border-t border-gray-200 bg-white py-6 text-center text-xs text-gray-500">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="flex items-center gap-2">
             <Repeat className="w-3.5 h-3.5" />
@@ -353,12 +350,13 @@ export default function App() {
           </p>
           <p>
             Scoring:{' '}
-            <strong className={aiConfig?.configured ? 'text-indigo-400' : 'text-slate-400'}>
+            <strong className={aiConfig?.configured ? 'text-blue-600' : 'text-gray-400'}>
               {aiConfig?.configured ? aiConfig.model : 'keyword heuristic (no AI key set)'}
             </strong>
           </p>
         </div>
       </footer>
+      </div>
 
       <ApplicationKitModal
         isOpen={Boolean(openJob)}

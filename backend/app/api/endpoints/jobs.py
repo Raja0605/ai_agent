@@ -138,6 +138,7 @@ async def search_jobs(
     remote: bool = Query(False, description="Filter for remote jobs"),
     use_resume: bool = Query(False, description="Use user resume to generate queries"),
     india_only: bool = Query(None, description="Restrict to jobs reachable from India"),
+    min_experience: Optional[int] = Query(None, description="Minimum years of experience required"),
     page: int = Query(1, ge=1),
     db: AsyncSession = Depends(get_db),
     current_user_id: str = Depends(get_current_user)
@@ -175,6 +176,7 @@ async def search_jobs(
         locations=locations,
         remote=remote,
         india_only=settings.INDIA_ONLY if india_only is None else india_only,
+        min_experience=min_experience,
     )
 
     # `fetch` returns only the postings that answer `criteria`, best match

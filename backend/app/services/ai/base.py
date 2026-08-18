@@ -99,8 +99,9 @@ class BaseAIService(LLMProvider):
     # ------------------------------------------------------------------ match
 
     async def match_job(self, request: JobMatchRequest) -> MatchResult:
-        if not self.is_configured:
-            return heuristic_match(request, note="No AI credential configured.")
+        from app.core.config import settings
+        if not self.is_configured or settings.DISABLE_AI_FEATURES:
+            return heuristic_match(request, note="AI features disabled or no credential configured.")
 
         prompt = f"""You are an experienced technical recruiter screening a candidate.
 
@@ -155,8 +156,9 @@ Return ONLY a JSON object, no markdown:
     # ----------------------------------------------------------- cover letter
 
     async def generate_cover_letter(self, request: CoverLetterRequest) -> CoverLetterResult:
-        if not self.is_configured:
-            return heuristic_cover_letter(request, note="No AI credential configured.")
+        from app.core.config import settings
+        if not self.is_configured or settings.DISABLE_AI_FEATURES:
+            return heuristic_cover_letter(request, note="AI features disabled or no credential configured.")
 
         prompt = f"""Write a concise three-paragraph cover note for a job application.
 Be specific and factual — use only what the candidate profile below supports.
@@ -180,7 +182,8 @@ Return the letter text only."""
     # ----------------------------------------------------------------- tailor
 
     async def tailor_resume(self, request: TailorResumeRequest) -> TailorResumeResult:
-        if not self.is_configured:
+        from app.core.config import settings
+        if not self.is_configured or settings.DISABLE_AI_FEATURES:
             return heuristic_tailor(request)
 
         prompt = f"""You are helping a candidate tailor an existing resume to one job.

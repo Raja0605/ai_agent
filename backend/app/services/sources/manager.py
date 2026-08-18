@@ -9,6 +9,7 @@ from app.services.sources.base import JobSource
 
 # Import adapters
 from app.services.sources.adzuna import AdzunaAdapter
+from app.services.sources.apify_naukri import ApifyNaukriAdapter
 from app.services.sources.ats_boards import build_ats_sources
 from app.services.sources.careerjet import CareerjetAdapter
 from app.services.sources.jooble import JoobleAdapter
@@ -32,6 +33,8 @@ def default_sources() -> List[JobSource]:
     so an unconfigured key costs that one source rather than the search.
     """
     return [
+        # Direct Naukri scraper for better data quality
+        ApifyNaukriAdapter(),
         # Aggregators that index the Indian portals. This is how Naukri,
         # LinkedIn and Indeed postings reach the app: none can be queried
         # directly, but all three syndicate into these indexes, and each

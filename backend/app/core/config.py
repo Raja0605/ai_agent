@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     #        https://generativelanguage.googleapis.com/v1beta/models
     GEMINI_MODEL: str = "gemini-3.1-pro-preview"
     OPENAI_MODEL: str = "gpt-4-turbo"
+    
+    # Force disable AI features to reduce API costs. When true, all AI features
+    # (job matching, resume analysis, cover letters) use heuristic fallbacks.
+    # Job fetching from portals continues to work normally.
+    DISABLE_AI_FEATURES: bool = False
 
     ADZUNA_APP_ID: Optional[str] = None
     ADZUNA_APP_KEY: Optional[str] = None
@@ -78,6 +83,10 @@ class Settings(BaseSettings):
     # Jooble — free key, country-specific index.
     JOOBLE_API_KEY: Optional[str] = None
     JOOBLE_API_HOST: str = "in.jooble.org"
+
+    # Apify — direct Naukri scraper for better data quality
+    APIFY_API_TOKEN: Optional[str] = None
+    APIFY_NAUKRI_ACTOR_ID: str = "epicscrapers/naukri-scraper"
 
     # ── Company career boards ─────────────────────────────────────────
     # Public ATS endpoints, as `platform:company-slug`. No credentials are

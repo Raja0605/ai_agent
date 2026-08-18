@@ -4,3 +4,9 @@
   display: flex;
   flex-direction: column;
 }
+
+/* Ensure proper layout for sidebar */
+body {
+  margin: 0;
+  padding: 0;
+}

@@ -1,6 +1,6 @@
 import httpx
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from app.services.sources.base import JobSource
 from app.schemas.job import NormalizedJob
 from app.core.config import settings
@@ -59,7 +59,8 @@ class AdzunaAdapter(JobSource):
                for job in data.get("results", []):
                    posted_date = None
                    try:
-                       posted_date = datetime.fromisoformat(job["created"].replace('Z', '+00:00'))
+                       parsed = datetime.fromisoformat(job["created"].replace('Z', '+00:00'))
+                       posted_date = parsed.astimezone(timezone.utc).replace(tzinfo=None) if parsed.tzinfo else parsed
                    except Exception:
                        pass
 

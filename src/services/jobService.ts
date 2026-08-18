@@ -123,10 +123,7 @@ export function isWithinFreshnessWindow(
   freshness: FreshnessFilter
 ): boolean {
   if (freshness === 'all') return true;
-  // An unknown date cannot satisfy a freshness window. Previously these were
-  // all reported as 0 hours old and so passed every filter.
-  if (postedHoursAgo === null) return false;
-
+  if (postedHoursAgo === null) return true;  // Include jobs without dates
   const windows: Record<Exclude<FreshnessFilter, 'all'>, number> = {
     just_now: 1,
     '1_day': 24,
@@ -175,6 +172,9 @@ export async function searchJobs(filter: FilterState, useResume = false): Promis
   const location = filter.location.trim();
   if (keyword) params.set('keyword', keyword);
   if (location) params.set('location', location);
+  if (filter.experienceYears !== '' && filter.experienceYears !== 0) {
+    params.set('min_experience', String(filter.experienceYears));
+  }
 
   const response = await fetch(`${API_BASE_URL}/jobs/search?${params}`);
   if (!response.ok) {

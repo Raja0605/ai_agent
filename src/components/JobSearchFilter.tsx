@@ -50,6 +50,17 @@ const FRESHNESS_OPTIONS: { value: FreshnessFilter; label: string; icon?: React.R
   { value: 'past_week', label: 'Last week', icon: <Calendar className="w-3 h-3" /> },
 ];
 
+const EXPERIENCE_OPTIONS: { value: number | ''; label: string }[] = [
+  { value: '', label: 'Any experience' },
+  { value: 0, label: 'Fresher/Entry level' },
+  { value: 1, label: '1+ years' },
+  { value: 2, label: '2+ years' },
+  { value: 3, label: '3+ years' },
+  { value: 5, label: '5+ years' },
+  { value: 8, label: '8+ years' },
+  { value: 10, label: '10+ years' },
+];
+
 export const JobSearchFilter: React.FC<JobSearchFilterProps> = ({
   filter,
   setFilter,
@@ -65,25 +76,27 @@ export const JobSearchFilter: React.FC<JobSearchFilterProps> = ({
     filter.platform !== 'all' ||
     filter.freshness !== 'all' ||
     filter.remoteOnly ||
-    filter.location !== '';
+    filter.location !== '' ||
+    filter.experienceYears !== '';
 
   const setPlatform = (platform: Platform) => setFilter(prev => ({ ...prev, platform }));
   const setFreshness = (freshness: FreshnessFilter) => setFilter(prev => ({ ...prev, freshness }));
+  const setExperience = (years: number | '') => setFilter(prev => ({ ...prev, experienceYears: years }));
 
   return (
-    <div className="bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
+    <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md space-y-6">
 
       {/* Search bar */}
-      <div className="flex flex-col lg:flex-row items-center bg-slate-950/80 border border-slate-700 rounded-2xl lg:rounded-full p-2 gap-3 w-full shadow-inner">
+      <div className="flex flex-col lg:flex-row items-center bg-gray-50 border border-gray-300 rounded-xl p-2 gap-3 w-full">
         <div className="flex-1 flex items-center px-4 w-full lg:w-auto min-h-[48px]">
-          <Search className="w-5 h-5 text-cyan-400 mr-3 shrink-0" />
+          <Search className="w-5 h-5 text-blue-600 mr-3 shrink-0" />
           <input
             type="text"
             value={filter.searchQuery}
             onChange={e => setFilter(prev => ({ ...prev, searchQuery: e.target.value }))}
             onKeyDown={e => e.key === 'Enter' && onFetch(false)}
             placeholder="Role, skill or company"
-            className="bg-transparent w-full focus:outline-none text-slate-100 placeholder-slate-500 font-medium text-[15px]"
+            className="bg-transparent w-full focus:outline-none text-gray-900 placeholder-gray-500 font-medium text-[15px]"
           />
           {filter.searchQuery && (
             <button
@@ -95,17 +108,17 @@ export const JobSearchFilter: React.FC<JobSearchFilterProps> = ({
           )}
         </div>
 
-        <div className="hidden lg:block w-[1px] h-8 bg-slate-700" />
+        <div className="hidden lg:block w-[1px] h-8 bg-gray-300" />
 
         <div className="w-full lg:w-56 flex items-center px-4 min-h-[48px]">
-          <MapPin className="w-5 h-5 text-emerald-400 mr-3 shrink-0" />
+          <MapPin className="w-5 h-5 text-green-600 mr-3 shrink-0" />
           <input
             type="text"
             value={filter.location}
             onChange={e => setFilter(prev => ({ ...prev, location: e.target.value }))}
             onKeyDown={e => e.key === 'Enter' && onFetch(false)}
             placeholder="Location"
-            className="bg-transparent w-full focus:outline-none text-slate-100 placeholder-slate-500 font-medium text-[15px]"
+            className="bg-transparent w-full focus:outline-none text-gray-900 placeholder-gray-500 font-medium text-[15px]"
           />
         </div>
 
@@ -113,7 +126,7 @@ export const JobSearchFilter: React.FC<JobSearchFilterProps> = ({
           <button
             onClick={() => onFetch(false)}
             disabled={isFetching}
-            className="flex-1 lg:flex-none px-6 py-3.5 rounded-xl lg:rounded-full bg-slate-800 hover:bg-slate-700 text-white font-bold text-[15px] transition-all disabled:opacity-50"
+            className="flex-1 lg:flex-none px-6 py-3.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-white font-semibold text-[15px] transition-all disabled:opacity-50"
           >
             {isFetching ? 'Searching…' : 'Search'}
           </button>
@@ -125,7 +138,7 @@ export const JobSearchFilter: React.FC<JobSearchFilterProps> = ({
                 ? 'Search using the roles detected in your resume'
                 : 'Upload a resume first — there is nothing to build a search from'
             }
-            className="flex-1 lg:flex-none px-6 py-3.5 rounded-xl lg:rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-[15px] shadow-lg shadow-blue-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-1 lg:flex-none px-6 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[15px] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Use my resume
           </button>
@@ -133,8 +146,8 @@ export const JobSearchFilter: React.FC<JobSearchFilterProps> = ({
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-          <Sparkles className="w-3 h-3 text-cyan-400" />
+        <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+          <Sparkles className="w-3 h-3 text-blue-600" />
           Try:
         </span>
         {POPULAR_ROLES.map(role => (
@@ -143,8 +156,8 @@ export const JobSearchFilter: React.FC<JobSearchFilterProps> = ({
             onClick={() => setFilter(prev => ({ ...prev, searchQuery: role }))}
             className={`text-xs px-2.5 py-1 rounded-lg border transition-all ${
               filter.searchQuery.toLowerCase() === role.toLowerCase()
-                ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 font-semibold'
-                : 'bg-slate-950/40 border-slate-800/80 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                ? 'bg-blue-100 border-blue-300 text-blue-700 font-semibold'
+                : 'bg-gray-50 border-gray-300 text-gray-600 hover:text-gray-900 hover:border-gray-400'
             }`}
           >
             {role}
@@ -156,8 +169,8 @@ export const JobSearchFilter: React.FC<JobSearchFilterProps> = ({
           Bangalore and Bengaluru, Gurgaon and Gurugram as the same place —
           but these save the typing and show which markets are covered. */}
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-          <MapPin className="w-3 h-3 text-emerald-400" />
+        <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+          <MapPin className="w-3 h-3 text-green-600" />
           Cities:
         </span>
         {POPULAR_CITIES.map(city => (
@@ -171,8 +184,8 @@ export const JobSearchFilter: React.FC<JobSearchFilterProps> = ({
             }
             className={`text-xs px-2.5 py-1 rounded-lg border transition-all ${
               filter.location.toLowerCase() === city.toLowerCase()
-                ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300 font-semibold'
-                : 'bg-slate-950/40 border-slate-800/80 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                ? 'bg-green-100 border-green-300 text-green-700 font-semibold'
+                : 'bg-gray-50 border-gray-300 text-gray-600 hover:text-gray-900 hover:border-gray-400'
             }`}
           >
             {city}
@@ -180,26 +193,26 @@ export const JobSearchFilter: React.FC<JobSearchFilterProps> = ({
         ))}
       </div>
 
-      <div className="h-[1px] bg-slate-800/60" />
+      <div className="h-[1px] bg-gray-200" />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Source filter, built from the sources actually present in the
             results rather than a hardcoded list of portals we never query. */}
         <div className="lg:col-span-5 space-y-2">
-          <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-            <Building2 className="w-3.5 h-3.5 text-cyan-400" />
+          <label className="text-xs font-semibold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+            <Building2 className="w-3.5 h-3.5 text-blue-600" />
             Source
           </label>
           {availableSources.length === 0 ? (
-            <p className="text-[11px] text-slate-500">Run a search to see which boards returned results.</p>
+            <p className="text-[11px] text-gray-500">Run a search to see which boards returned results.</p>
           ) : (
             <div className="flex items-center gap-1.5 flex-wrap">
               <button
                 onClick={() => setPlatform('all')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                   filter.platform === 'all'
-                    ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 font-bold'
-                    : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200'
+                    ? 'bg-blue-100 border-blue-300 text-blue-700 font-semibold'
+                    : 'bg-gray-50 border-gray-300 text-gray-600 hover:text-gray-900'
                 }`}
               >
                 All sources
@@ -210,8 +223,8 @@ export const JobSearchFilter: React.FC<JobSearchFilterProps> = ({
                   onClick={() => setPlatform(source)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                     filter.platform === source
-                      ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 font-bold'
-                      : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200'
+                      ? 'bg-blue-100 border-blue-300 text-blue-700 font-semibold'
+                      : 'bg-gray-50 border-gray-300 text-gray-600 hover:text-gray-900'
                   }`}
                 >
                   {sourceLabel(source)}
@@ -224,12 +237,12 @@ export const JobSearchFilter: React.FC<JobSearchFilterProps> = ({
         {/* Freshness */}
         <div className="lg:col-span-7 space-y-2">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-amber-400" />
+            <label className="text-xs font-semibold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-amber-600" />
               Posted within
             </label>
-            <span className="text-[11px] text-slate-400">
-              Showing <span className="font-semibold text-cyan-400">{totalMatching}</span> jobs
+            <span className="text-[11px] text-gray-600">
+              Showing <span className="font-semibold text-blue-600">{totalMatching}</span> jobs
             </span>
           </div>
 
@@ -240,8 +253,8 @@ export const JobSearchFilter: React.FC<JobSearchFilterProps> = ({
                 onClick={() => setFreshness(option.value)}
                 className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1 ${
                   filter.freshness === option.value
-                    ? 'bg-amber-500/20 border-amber-400 text-amber-300'
-                    : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200'
+                    ? 'bg-amber-100 border-amber-300 text-amber-700'
+                    : 'bg-gray-50 border-gray-300 text-gray-600 hover:text-gray-900'
                 }`}
               >
                 {option.icon}
@@ -250,8 +263,36 @@ export const JobSearchFilter: React.FC<JobSearchFilterProps> = ({
             ))}
           </div>
           {filter.freshness !== 'all' && (
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-gray-500">
               Jobs whose source gave no posting date are excluded by this filter.
+            </p>
+          )}
+        </div>
+
+        {/* Experience filter */}
+        <div className="lg:col-span-12 space-y-2">
+          <label className="text-xs font-semibold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+            Experience required
+          </label>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {EXPERIENCE_OPTIONS.map(option => (
+              <button
+                key={option.value}
+                onClick={() => setExperience(option.value)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                  filter.experienceYears === option.value
+                    ? 'bg-purple-100 border-purple-300 text-purple-700 font-semibold'
+                    : 'bg-gray-50 border-gray-300 text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          {filter.experienceYears !== '' && (
+            <p className="text-[11px] text-gray-500">
+              Showing jobs requiring {filter.experienceYears === 0 ? 'entry-level' : `${filter.experienceYears}+ years`} experience.
             </p>
           )}
         </div>
@@ -260,21 +301,21 @@ export const JobSearchFilter: React.FC<JobSearchFilterProps> = ({
       <div className="flex items-center gap-3 flex-wrap">
         <button
           onClick={() => setFilter(prev => ({ ...prev, remoteOnly: !prev.remoteOnly }))}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-semibold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-xs font-semibold transition-all ${
             filter.remoteOnly
-              ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400'
-              : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200'
+              ? 'bg-green-50 border-green-300 text-green-700'
+              : 'bg-gray-50 border-gray-300 text-gray-600 hover:text-gray-900'
           }`}
         >
           <Globe className="w-4 h-4" />
           Remote only
-          {filter.remoteOnly && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+          {filter.remoteOnly && <Check className="w-3.5 h-3.5 text-green-600" />}
         </button>
 
         {hasActiveFilters && (
           <button
             onClick={onReset}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-800 bg-slate-950/60 text-slate-400 hover:text-slate-200 text-xs transition-all"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 bg-gray-50 text-gray-600 hover:text-gray-900 text-xs transition-all"
           >
             <Filter className="w-3.5 h-3.5" />
             Clear filters

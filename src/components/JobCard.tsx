@@ -27,7 +27,7 @@ const FreshnessPill: React.FC<{ hours: number | null; label: string }> = ({ hour
   // exactly what happened when postedHoursAgo was hardcoded to 0.
   if (hours === null) {
     return (
-      <span className="px-2.5 py-1 text-[11px] font-medium bg-slate-900 text-slate-500 border border-slate-800 rounded-full flex items-center gap-1">
+      <span className="px-2.5 py-1 text-[11px] font-medium bg-gray-100 text-gray-500 border border-gray-300 rounded-full flex items-center gap-1">
         <Clock className="w-3 h-3" />
         Date unknown
       </span>
@@ -36,8 +36,8 @@ const FreshnessPill: React.FC<{ hours: number | null; label: string }> = ({ hour
 
   if (hours <= 1) {
     return (
-      <span className="px-2.5 py-1 text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-full flex items-center gap-1">
-        <Zap className="w-3 h-3 text-emerald-400" />
+      <span className="px-2.5 py-1 text-[11px] font-bold bg-green-100 text-green-700 border border-green-300 rounded-full flex items-center gap-1">
+        <Zap className="w-3 h-3 text-green-600" />
         Just now
       </span>
     );
@@ -45,10 +45,10 @@ const FreshnessPill: React.FC<{ hours: number | null; label: string }> = ({ hour
 
   const tone =
     hours <= 24
-      ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+      ? 'bg-amber-100 text-amber-700 border-amber-300'
       : hours <= 72
-        ? 'bg-slate-800 text-cyan-300 border-cyan-500/30'
-        : 'bg-slate-900 text-slate-400 border-slate-800';
+        ? 'bg-blue-100 text-blue-700 border-blue-300'
+        : 'bg-gray-100 text-gray-600 border-gray-300';
 
   return (
     <span className={`px-2.5 py-1 text-[11px] font-medium rounded-full border flex items-center gap-1 ${tone}`}>
@@ -68,7 +68,7 @@ export const JobCard: React.FC<JobCardProps> = ({
   const resumeSkills = activeResume?.skills ?? [];
 
   return (
-    <div className="relative group bg-slate-900/70 hover:bg-slate-900/90 border border-slate-800 hover:border-slate-700 transition-all duration-300 rounded-2xl p-6 flex flex-col justify-between gap-4 shadow-xl">
+    <div className="relative group bg-white border border-gray-200 hover:border-blue-300 hover:shadow-lg transition-all duration-200 rounded-xl p-5 flex flex-col justify-between gap-4 card-shadow card-shadow-hover">
 
       {/* Meta row: where it came from, how old it is, how well it fits */}
       <div className="flex items-start justify-between gap-2 flex-wrap">
@@ -80,21 +80,21 @@ export const JobCard: React.FC<JobCardProps> = ({
       </div>
 
       <div className="space-y-2">
-        <h2 className="text-lg font-bold text-slate-100 group-hover:text-cyan-300 transition-colors leading-snug">
+        <h2 className="text-base font-semibold text-gray-900 group-hover:text-blue-600 transition-colors leading-snug">
           {job.title}
         </h2>
 
-        <div className="flex items-center gap-4 text-xs text-slate-400 flex-wrap">
-          <span className="flex items-center gap-1.5 font-semibold text-slate-200">
-            <Building2 className="w-3.5 h-3.5 text-cyan-400" />
+        <div className="flex items-center gap-4 text-xs text-gray-600 flex-wrap">
+          <span className="flex items-center gap-1.5 font-medium text-gray-800">
+            <Building2 className="w-3.5 h-3.5 text-blue-600" />
             {job.company}
           </span>
           <span className="flex items-center gap-1">
-            <MapPin className="w-3.5 h-3.5 text-slate-500" />
+            <MapPin className="w-3.5 h-3.5 text-gray-500" />
             {job.location}
           </span>
           {job.isRemote && (
-            <span className="flex items-center gap-1 text-emerald-400 font-medium">
+            <span className="flex items-center gap-1 text-green-600 font-medium">
               <Globe className="w-3.5 h-3.5" />
               Remote
             </span>
@@ -102,22 +102,22 @@ export const JobCard: React.FC<JobCardProps> = ({
         </div>
 
         <div className="flex items-center gap-3 text-xs font-medium pt-1 flex-wrap">
-          <span className="flex items-center gap-1 text-slate-300 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
-            <Wallet className="w-3.5 h-3.5 text-emerald-400" />
+          <span className="flex items-center gap-1 text-gray-700 bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-200">
+            <Wallet className="w-3.5 h-3.5 text-green-600" />
             {job.salary}
           </span>
-          <span className="flex items-center gap-1 text-slate-400 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
-            <Briefcase className="w-3.5 h-3.5 text-indigo-400" />
+          <span className="flex items-center gap-1 text-gray-600 bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-200">
+            <Briefcase className="w-3.5 h-3.5 text-purple-600" />
             {job.experienceRequired}
           </span>
         </div>
       </div>
 
-      <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">{job.description}</p>
+      <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed">{job.description}</p>
 
       {job.skillsRequired.length > 0 && (
         <div className="space-y-1.5">
-          <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
+          <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider block">
             Listed requirements
           </span>
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -130,10 +130,10 @@ export const JobCard: React.FC<JobCardProps> = ({
               return (
                 <span
                   key={skill}
-                  className={`text-[11px] px-2.5 py-0.5 rounded-md border font-mono transition-all ${
+                  className={`text-[11px] px-2.5 py-0.5 rounded-md border font-sans transition-all ${
                     isMatch
-                      ? 'bg-cyan-500/15 border-cyan-500/40 text-cyan-300 font-semibold'
-                      : 'bg-slate-950/80 border-slate-800 text-slate-500'
+                      ? 'bg-blue-50 border-blue-300 text-blue-700 font-medium'
+                      : 'bg-gray-50 border-gray-200 text-gray-600'
                   }`}
                 >
                   {isMatch && '✓ '}
@@ -142,7 +142,7 @@ export const JobCard: React.FC<JobCardProps> = ({
               );
             })}
             {job.skillsRequired.length > 8 && (
-              <span className="text-[11px] text-slate-500">
+              <span className="text-[11px] text-gray-500">
                 +{job.skillsRequired.length - 8} more
               </span>
             )}
@@ -150,14 +150,14 @@ export const JobCard: React.FC<JobCardProps> = ({
         </div>
       )}
 
-      <div className="h-[1px] bg-slate-800/80" />
+      <div className="h-[1px] bg-gray-200" />
 
       <div className="flex items-center justify-between gap-3">
         <a
           href={job.applyUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors"
+          className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-900 transition-colors"
         >
           <ExternalLink className="w-3.5 h-3.5" />
           View listing
@@ -165,10 +165,10 @@ export const JobCard: React.FC<JobCardProps> = ({
 
         <button
           onClick={() => onOpen(job)}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
             isApplied
-              ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30'
-              : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20'
+              ? 'bg-green-50 border border-green-300 text-green-700 hover:bg-green-100'
+              : 'bg-blue-600 hover:bg-blue-700 text-white'
           }`}
         >
           {isApplied ? (
