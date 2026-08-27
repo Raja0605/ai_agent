@@ -1,6 +1,8 @@
 import json
 import logging
+import re
 from html import unescape
+from datetime import datetime, timedelta, timezone
 from .exceptions import MCPSearchError
 from .normalizer import MCPJobNormalizer
 from .server_manager import MCPServerManager
@@ -33,6 +35,7 @@ class MCPJobSearch:
             if tool.name == "search_jobs":
                 result = await self._hydrate_linkedin_jobs(client, result)
             jobs = MCPJobNormalizer().normalize(result, self.config.source)
+            jobs = self._filter_jobs(jobs, filters or {})
             logger.info("MCP search completed", extra={"server": self.config.name, "count": len(jobs)})
             return jobs, tool
         except Exception as exc:
@@ -47,8 +50,34 @@ class MCPJobSearch:
             if "keyword" in lower or lower in {"query", "search", "q"}: args[key] = keywords if kind == "array" else " ".join(keywords)
             elif "location" in lower or lower in {"city", "place"}: args[key] = location
             elif "remote" in lower: args[key] = remote
+            elif lower in {"work_type", "workplace_type"} and remote is True: args[key] = "remote"
             elif "experience" in lower or "level" in lower: args[key] = experience_level
+            elif "date" in lower and filters.get("posted_after"):
+                after = filters["posted_after"]
+                days = (datetime.now(timezone.utc).date() - after).days
+                args[key] = "past_24_hours" if days <= 1 else "past_week" if days <= 7 else "past_month"
         return {k: v for k, v in args.items() if v is not None}
+
+    @staticmethod
+    def _filter_jobs(jobs, filters):
+        minimum, maximum = filters.get("experience_min"), filters.get("experience_max")
+        after, before = filters.get("posted_after"), filters.get("posted_before")
+        filtered = []
+        for job in jobs:
+            if minimum is not None or maximum is not None:
+                # Unknown requirements cannot be claimed to satisfy a chosen
+                # range; this is a deterministic, evidence-based filter.
+                if job.experience_min is None and job.experience_max is None: continue
+                job_low = job.experience_min or 0
+                job_high = job.experience_max if job.experience_max is not None else float("inf")
+                if (maximum is not None and job_low > maximum) or (minimum is not None and job_high < minimum): continue
+            if after or before:
+                if not job.posted_at: continue
+                posted = job.posted_at.date()
+                if after and posted < after: continue
+                if before and posted > before: continue
+            filtered.append(job)
+        return filtered[:filters.get("limit", 25)]
     @staticmethod
     def _unwrap(result):
         if isinstance(result, dict) and isinstance(result.get("content"), list):
@@ -105,14 +134,23 @@ class MCPJobSearch:
         lines = [unescape(line).strip() for line in text.splitlines() if line.strip()]
         if len(lines) < 2:
             return {"job_id": job_id}
-        location = next((line.split(" · ", 1)[0] for line in lines[2:] if "India" in line or "Remote" in line), None)
+        location_line = next((line for line in lines[2:] if "India" in line or "Remote" in line), None)
+        location = location_line.split(" · ", 1)[0] if location_line else None
         employment_type = next((line for line in lines[2:12] if line.lower() in {"full-time", "part-time", "contract", "temporary", "internship"}), None)
+        posted_at = None
+        if location_line:
+            relative = re.search(r"·\s*(\d+)\s+(hour|day|week|month)s?\s+ago", location_line, re.I)
+            if relative:
+                amount, unit = int(relative.group(1)), relative.group(2).lower()
+                hours = amount if unit == "hour" else amount * 24 if unit == "day" else amount * 24 * 7 if unit == "week" else amount * 24 * 30
+                posted_at = datetime.now(timezone.utc) - timedelta(hours=hours)
         return {
             "job_id": job_id,
             "title": lines[1],
             "company": lines[0],
             "location": location,
             "employment_type": employment_type,
+            "posted_at": posted_at.isoformat() if posted_at else None,
             "description": text,
             "job_url": detail.get("url"),
             "apply_url": detail.get("url"),

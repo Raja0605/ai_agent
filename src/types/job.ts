@@ -51,6 +51,9 @@ export interface JobPost {
   postedHoursAgo: number | null;
   salary: string;
   experienceRequired: string;
+  employmentType: string | null;
+  experienceMin: number | null;
+  experienceMax: number | null;
   skillsRequired: string[];
   description: string;
   applyUrl: string;
@@ -116,6 +119,10 @@ export interface FilterState {
   location: string;
   remoteOnly: boolean;
   minSalary: number;
+  experienceMin?: number | null;
+  experienceMax?: number | null;
+  postedAfter?: string;
+  postedBefore?: string;
 }
 
 

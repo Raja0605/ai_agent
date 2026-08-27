@@ -32,6 +32,8 @@ class Job(Base):
     location = Column(String, index=True)
     remote = Column(Boolean, default=False)
     employment_type = Column(String, nullable=True)
+    experience_min = Column(Integer, nullable=True)
+    experience_max = Column(Integer, nullable=True)
     description = Column(String)
     salary_min = Column(Integer, nullable=True)
     salary_max = Column(Integer, nullable=True)

@@ -1,4 +1,5 @@
 from typing import Any, List, Optional
+from datetime import date
 from pydantic import BaseModel, Field
 
 
@@ -28,3 +29,8 @@ class MCPSearchRequest(BaseModel):
     keywords: List[str] = Field(min_length=1)
     location: Optional[str] = None
     remote: Optional[bool] = None
+    experience_min: Optional[int] = Field(default=None, ge=0, le=60)
+    experience_max: Optional[int] = Field(default=None, ge=0, le=60)
+    posted_after: Optional[date] = None
+    posted_before: Optional[date] = None
+    limit: int = Field(default=25, ge=1, le=100)

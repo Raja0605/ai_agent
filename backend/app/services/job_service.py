@@ -117,6 +117,8 @@ async def save_normalized_jobs(jobs: List[NormalizedJob]) -> List[Job]:
                             location=nj.location,
                             remote=nj.remote,
                             employment_type=nj.employment_type,
+                            experience_min=nj.experience_min,
+                            experience_max=nj.experience_max,
                             description=nj.description,
                             salary_min=nj.salary_min,
                             salary_max=nj.salary_max,
@@ -137,6 +139,9 @@ async def save_normalized_jobs(jobs: List[NormalizedJob]) -> List[Job]:
                             canonical.currency = nj.currency
                         if canonical.posted_at is None and nj.posted_at is not None:
                             canonical.posted_at = nj.posted_at
+                        if canonical.experience_min is None and nj.experience_min is not None:
+                            canonical.experience_min = nj.experience_min
+                            canonical.experience_max = nj.experience_max
                         if nj.description and len(nj.description) > len(canonical.description or ""):
                             canonical.description = nj.description
 

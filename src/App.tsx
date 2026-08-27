@@ -94,10 +94,10 @@ export default function App() {
     }
   };
 
-  const handleTrackApplication = async (job: JobPost, coverNote: string, matchScore: number | null) => {
+  const handleTrackApplication = async (job: JobPost, coverNote: string, matchScore: number | null, status: ApplicationStatus = 'SAVED') => {
     const logs = await addApplicationLog({
       jobId: job.id,
-      status: 'APPLYING',
+      status,
       resumeUsed: activeResume?.fileName ?? 'None',
       matchScore,
       coverNote,

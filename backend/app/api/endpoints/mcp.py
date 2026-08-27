@@ -58,7 +58,8 @@ async def tools(server_id: str, db: AsyncSession = Depends(get_db)):
 @router.post("/search")
 async def search(payload: MCPSearchRequest, db: AsyncSession = Depends(get_db)):
     rows = (await db.execute(select(MCPServer).where(MCPServer.id.in_(payload.server_ids), MCPServer.enabled.is_(True)))).scalars().all()
-    results = await asyncio.gather(*(MCPJobSearch(MCPServerConfig(s.name, s.transport, s.endpoint, s.enabled)).search(payload.keywords, payload.location, payload.remote) for s in rows), return_exceptions=True)
+    filters = payload.model_dump(exclude={"server_ids", "keywords", "location", "remote"})
+    results = await asyncio.gather(*(MCPJobSearch(MCPServerConfig(s.name, s.transport, s.endpoint, s.enabled)).search(payload.keywords, payload.location, payload.remote, filters=filters) for s in rows), return_exceptions=True)
     jobs, states = [], {}
     for server, result in zip(rows, results):
         if isinstance(result, Exception): states[server.id] = {"status": "error", "result_count": 0}

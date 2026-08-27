@@ -81,6 +81,14 @@ function formatSalary(job: Record<string, any>): string {
   return `From ${format(min || max)} ${unit}`.trim();
 }
 
+function formatExperience(job: Record<string, any>): string {
+  const min = job.experience_min;
+  const max = job.experience_max;
+  if (min == null && max == null) return 'Experience not specified';
+  if (min != null && max != null) return `${min}–${max} years`;
+  return `${min ?? max}+ years`;
+}
+
 /**
  * Map an API job onto the client model.
  *
@@ -109,7 +117,10 @@ export function mapJob(job: Record<string, any>): JobPost {
     postedHoursAgo,
     postedTime: relativeTime(postedHoursAgo),
     salary: formatSalary(job),
-    experienceRequired: job.employment_type || 'Not specified',
+    experienceRequired: formatExperience(job),
+    employmentType: job.employment_type ?? null,
+    experienceMin: job.experience_min ?? null,
+    experienceMax: job.experience_max ?? null,
     skillsRequired: (job.skills || []).map((skill: any) =>
       typeof skill === 'string' ? skill : skill.name
     ),

@@ -10,6 +10,8 @@ class NormalizedJob(BaseModel):
     location: Optional[str] = None
     remote: bool = False
     employment_type: Optional[str] = None
+    experience_min: Optional[int] = None
+    experience_max: Optional[int] = None
     description: str
     salary_min: Optional[int] = None
     salary_max: Optional[int] = None
@@ -42,6 +44,8 @@ class JobBase(BaseModel):
     location: Optional[str] = None
     remote: bool = False
     employment_type: Optional[str] = None
+    experience_min: Optional[int] = None
+    experience_max: Optional[int] = None
     description: str
     salary_min: Optional[int] = None
     salary_max: Optional[int] = None
