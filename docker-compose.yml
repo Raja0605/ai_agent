@@ -24,14 +24,13 @@ services:
 
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: job-pulse-backend
     ports:
       - "8000:8000"
     restart: always
-    # Loads GOOGLE_API_KEY / OPENAI_API_KEY / ADZUNA_* from the root .env.
-    # Without this the AI providers silently fall back to keyword heuristics.
+    # Loads database and enabled job-source configuration from the root .env.
     env_file:
       - .env
     environment:

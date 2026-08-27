@@ -1,7 +1,7 @@
 import React from 'react';
-import { Cpu, Sparkles } from 'lucide-react';
+import { Cpu } from 'lucide-react';
 import type { MatchResult } from '../types/job';
-import { scoreBand } from '../services/aiService';
+import { scoreBand } from '../services/matchingService';
 
 /**
  * The match score, with its band and its provenance.
@@ -41,16 +41,13 @@ export const MatchBadge: React.FC<MatchBadgeProps> = ({ match, isLoading, size =
   }
 
   const band = scoreBand(match.score);
-  const isAi = match.method === 'ai';
-  const Icon = isAi ? Sparkles : Cpu;
+  const Icon = Cpu;
 
   return (
     <span
       className={`flex items-center gap-1.5 px-3 py-1 rounded-xl border ${band.tone.bg} ${band.tone.border}`}
       title={
-        isAi
-          ? `AI evaluation (${match.confidence} confidence). ${match.reason || ''}`
-          : `Keyword-based score, no AI involved (${match.confidence} confidence). ${match.reason || ''}`
+        `Deterministic score (${match.confidence} confidence). ${match.reason || ''}`
       }
     >
       <Icon className={`w-3.5 h-3.5 ${band.tone.text}`} />

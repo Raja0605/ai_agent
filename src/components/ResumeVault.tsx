@@ -11,7 +11,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import type { AtsCheckResult, AtsIssue, ResumeProfile } from '../types/job';
-import { checkAts } from '../services/aiService';
+import { checkResumeStructure } from '../services/matchingService';
 import { deleteResume, saveActiveResumeId, saveResumeText, uploadResumePdf } from '../services/resumeService';
 
 /**
@@ -111,7 +111,7 @@ export const ResumeVault: React.FC<ResumeVaultProps> = ({
     setChecking(true);
     setError(null);
     try {
-      setAts({ resumeId: resume.id, result: await checkAts(resume) });
+      setAts({ resumeId: resume.id, result: await checkResumeStructure(resume) });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ATS check failed.');
     } finally {
@@ -202,8 +202,7 @@ export const ResumeVault: React.FC<ResumeVaultProps> = ({
             <FileText className="w-10 h-10 text-slate-600 mx-auto" />
             <h3 className="text-sm font-bold text-slate-300">No resumes yet</h3>
             <p className="text-xs text-slate-500 max-w-md mx-auto">
-              Upload one to start scoring jobs. Until then, matching, tailoring and loop runs
-              have nothing to compare against and will say so rather than guessing.
+              Upload one to enable deterministic resume matching.
             </p>
           </div>
         ) : (

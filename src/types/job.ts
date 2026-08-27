@@ -12,7 +12,7 @@ export const ALL_PLATFORMS = 'all';
 export type FreshnessFilter = 'all' | 'just_now' | '1_day' | '2_days' | '3_days' | 'past_week';
 
 /** How a match number was produced. The UI must never present these alike. */
-export type MatchMethod = 'ai' | 'heuristic';
+export type MatchMethod = 'heuristic';
 
 /** How much evidence a score rests on — separate from how high it is. */
 export type MatchConfidence = 'high' | 'medium' | 'low' | 'none';
@@ -108,14 +108,6 @@ export interface ApplicationLog {
  * in the UI but had no effect: credentials and model selection live in the
  * server environment, so the browser can only ever report what is set.
  */
-export interface AiRuntimeConfig {
-  provider: string;
-  providerName: string;
-  model: string;
-  configured: boolean;
-  activeMethod: MatchMethod;
-}
-
 export interface FilterState {
   searchQuery: string;
   platform: Platform;
@@ -126,44 +118,6 @@ export interface FilterState {
   minSalary: number;
 }
 
-export interface JobLoop {
-  id: string;
-  name: string;
-  keywords: string[];
-  location: string | null;
-  remoteOnly: boolean;
-  resumeId: string | null;
-  cadenceHours: number;
-  minScore: number;
-  active: boolean;
-  lastRunAt: string | null;
-  lastRunStatus: string | null;
-  lastRunError: string | null;
-  createdAt: string;
-  totalMatches: number;
-  newMatches: number;
-}
-
-export interface LoopMatch {
-  id: string;
-  loopId: string;
-  score: number;
-  scoreMethod: MatchMethod;
-  matchedSkills: string[];
-  missingSkills: string[];
-  seen: boolean;
-  createdAt: string;
-  job: JobPost;
-}
-
-export interface LoopRunResult {
-  loopId: string;
-  status: string;
-  jobsFetched: number;
-  newMatches: number;
-  belowThreshold: number;
-  error?: string | null;
-}
 
 export interface AtsIssue {
   severity: 'critical' | 'warning' | 'info';
@@ -178,13 +132,6 @@ export interface AtsCheckResult {
   wordCount: number;
 }
 
-export interface TailorResult {
-  tailoredSummary: string;
-  prioritizedSkills: string[];
-  keywordsToAdd: string[];
-  bulletSuggestions: string[];
-  method: MatchMethod;
-}
 
 export interface RatePerformance {
   label: string;

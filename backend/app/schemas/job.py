@@ -19,6 +19,14 @@ class NormalizedJob(BaseModel):
     apply_url: Optional[str] = None
     skills: List[str] = []
 
+class JobSearchRequest(BaseModel):
+    keywords: List[str]
+    location: Optional[str] = None
+    remote: bool = False
+    experience_level: Optional[str] = None
+    salary_min: Optional[int] = None
+    sources: List[str] = []
+
 class JobSourceRecordBase(BaseModel):
     source: str
     source_job_id: str

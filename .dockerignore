@@ -10,9 +10,8 @@ dist
 !.env.example
 *.pdf
 
-# This file covers the FRONTEND image, whose build context is the repo root.
-# The backend has its own backend/.dockerignore for its own context.
-backend/
+# Both images now build from the repository root so the backend can include
+# its separate mcp_agent package. Dockerfiles select only the files they need.
 .venv/
 venv/
 __pycache__/

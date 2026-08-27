@@ -1,5 +1,5 @@
 import React from 'react';
-import { Briefcase, FileText, BarChart3, History, X, Zap, Cpu } from 'lucide-react';
+import { Briefcase, FileText, BarChart3, History, X, Plug } from 'lucide-react';
 import type { Tab } from './Header';
 
 interface SidebarProps {
@@ -8,7 +8,6 @@ interface SidebarProps {
   isOpen: boolean;
   onToggle: () => void;
   appliedCount: number;
-  aiConfig: { configured: boolean; providerName?: string } | null;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -17,12 +16,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
   onToggle,
   appliedCount,
-  aiConfig,
 }) => {
   const menuItems = [
     { id: 'jobs' as Tab, icon: Briefcase, label: 'Jobs' },
     { id: 'tracker' as Tab, icon: History, label: 'Applications', badge: appliedCount || undefined },
-    { id: 'loops' as Tab, icon: Zap, label: 'Saved Searches' },
+    { id: 'mcp' as Tab, icon: Plug, label: 'AI Server' },
     { id: 'analytics' as Tab, icon: BarChart3, label: 'Analytics' },
     { id: 'resumes' as Tab, icon: FileText, label: 'Resumes' },
   ];
@@ -60,15 +58,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           </div>
 
-          {/* AI Status */}
-          <div className="p-4 border-b border-gray-200">
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200">
-              <Cpu className={`w-4 h-4 ${aiConfig?.configured ? 'text-blue-600' : 'text-gray-400'}`} />
-              <span className="text-xs font-medium text-gray-700">
-                {aiConfig?.configured ? `AI: ${aiConfig.providerName}` : 'Keyword matching'}
-              </span>
-            </div>
-          </div>
 
           {/* Navigation */}
           <nav className="flex-1 p-4 space-y-1 overflow-y-auto">

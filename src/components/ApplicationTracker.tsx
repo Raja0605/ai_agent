@@ -2,7 +2,7 @@ import React from 'react';
 import { Building2, Calendar, FileText, Send, Sparkles } from 'lucide-react';
 import type { ApplicationLog, ApplicationStatus } from '../types/job';
 import { SourceBadge } from './SourceBadge';
-import { scoreBand } from '../services/aiService';
+import { scoreBand } from '../services/matchingService';
 
 interface ApplicationTrackerProps {
   logs: ApplicationLog[];
@@ -70,8 +70,7 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({ logs, on
         <Send className="w-8 h-8 text-slate-600 mx-auto" />
         <h3 className="text-sm font-bold text-slate-300">Nothing tracked yet</h3>
         <p className="text-xs text-slate-500 max-w-sm mx-auto">
-          Open a job from the Jobs or Loops tab, review its application kit, and it will be
-          recorded here when you launch the listing.
+          Open a job from the Jobs or AI Server tab; it is recorded here when you launch the listing.
         </p>
       </div>
     ) : (

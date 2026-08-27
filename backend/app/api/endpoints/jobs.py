@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Query, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, Query, Depends, HTTPException
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -6,9 +6,9 @@ from sqlalchemy import or_, desc
 from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
-from app.schemas.job import NormalizedJob, JobResponse
+from app.schemas.job import JobResponse, JobSearchRequest
 from app.models.job import Job, Skill
-from app.services.sources.manager import SourceManager
+from app.sources.manager import SourceManager
 from app.services.job_service import save_normalized_jobs
 from app.services.job_filter import SearchCriteria
 from app.services.locations import (
@@ -106,27 +106,13 @@ async def get_jobs(
 
     return rows[(page - 1) * page_size : page * page_size]
 
-@router.post("/sync")
-async def sync_jobs(
-    background_tasks: BackgroundTasks,
-    keyword: str = Query(..., description="Job title or keywords"),
-    location: Optional[str] = Query(None, description="Location to search in"),
-    remote: bool = Query(False, description="Filter for remote jobs"),
-    india_only: bool = Query(None, description="Restrict to jobs reachable from India"),
-):
-    """
-    Trigger background aggregation from all sources.
-    """
-    scope = settings.INDIA_ONLY if india_only is None else india_only
-
-    async def fetch_and_save():
-        jobs = await source_manager.fetch_all(
-            keyword=keyword, location=location, remote=remote, india_only=scope
-        )
-        await save_normalized_jobs(jobs)
-
-    background_tasks.add_task(fetch_and_save)
-    return {"message": "Job synchronization started in the background."}
+@router.post("/search", response_model=List[JobResponse])
+async def search_jobs_post(payload: JobSearchRequest):
+    """Search configured direct sources now; no scheduled or background fetching."""
+    jobs, _ = await source_manager.search(payload.keywords, payload.location,
+        {"remote": payload.remote, "experience_level": payload.experience_level,
+         "salary_min": payload.salary_min}, payload.sources or None)
+    return await save_normalized_jobs(jobs)
 
 from app.api.deps import get_current_user
 from app.models.user import UserProfile

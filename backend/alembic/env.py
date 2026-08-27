@@ -23,7 +23,7 @@ from app.core.database import Base
 # the full schema.
 from app.models.application import ApplicationTracking  # noqa: F401
 from app.models.job import Job, JobSourceRecord, Skill  # noqa: F401
-from app.models.loop import JobLoop, LoopMatch  # noqa: F401
+from app.models.mcp import MCPServer  # noqa: F401
 from app.models.user import Resume, User, UserProfile  # noqa: F401
 
 config = context.config

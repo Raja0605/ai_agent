@@ -9,7 +9,7 @@ const ACTIVE_RESUME_KEY = 'job_pulse_active_resume_id';
  * There used to be a hardcoded "Alex Vance" DevOps resume — a fictional
  * person with a fabricated skill list and a fixed 92% ATS score — that the app
  * silently fell back to whenever the backend returned nothing. Every match
- * score, analytics figure and cover letter was then computed against a person
+ * score and analytics figure are then computed against a person
  * who does not exist, while the UI presented it as the user's own resume.
  * An empty vault is now an empty vault, and the UI asks for an upload.
  */

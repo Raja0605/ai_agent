@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Briefcase, CheckCircle2, Cpu, FileText, Menu, Repeat, Zap } from 'lucide-react';
+import { AlertTriangle, Briefcase, CheckCircle2, FileText, Menu, Repeat, Zap } from 'lucide-react';
 
 import type {
-  AiRuntimeConfig,
   ApplicationLog,
   ApplicationStatus,
   FilterState,
@@ -17,7 +16,6 @@ import {
   searchJobs,
   updateApplicationStatus,
 } from './services/jobService';
-import { getAiConfig, matchJobsBatch } from './services/aiService';
 import { getActiveResumeId, getStoredResumes, saveActiveResumeId } from './services/resumeService';
 
 import { type Tab } from './components/Header';
@@ -25,10 +23,9 @@ import { JobSearchFilter } from './components/JobSearchFilter';
 import { JobCard } from './components/JobCard';
 import { ResumeVault } from './components/ResumeVault';
 import { ApplicationKitModal } from './components/ApplicationKitModal';
-import { AiStatusModal } from './components/AiStatusModal';
 import { ApplicationTracker } from './components/ApplicationTracker';
 import { AnalyticsOverview } from './components/AnalyticsOverview';
-import { LoopsPanel } from './components/LoopsPanel';
+import { McpServerPanel } from './components/McpServerPanel';
 import { Sidebar } from './components/Sidebar';
 import './App.css';
 
@@ -49,15 +46,11 @@ export default function App() {
 
   const [jobs, setJobs] = useState<JobPost[]>([]);
   const [isFetching, setIsFetching] = useState(false);
-  const [isScoring, setIsScoring] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
   const [resumes, setResumes] = useState<ResumeProfile[]>([]);
   const [activeResume, setActiveResume] = useState<ResumeProfile | null>(null);
   const [applicationLogs, setApplicationLogs] = useState<ApplicationLog[]>([]);
-  const [aiConfig, setAiConfig] = useState<AiRuntimeConfig | null>(null);
-
-  const [isAiStatusOpen, setIsAiStatusOpen] = useState(false);
   const [openJob, setOpenJob] = useState<JobPost | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,7 +68,6 @@ export default function App() {
     // Each of these is independent, and one failing must not blank the others.
     void loadResumes().catch(err => setError(err.message));
     void getApplicationLogs().then(setApplicationLogs).catch(() => undefined);
-    void getAiConfig().then(setAiConfig).catch(() => setAiConfig(null));
   }, [loadResumes]);
 
   const filteredJobs = useMemo(() => filterJobs(jobs, filter), [jobs, filter]);
@@ -94,15 +86,6 @@ export default function App() {
       setJobs(results);
       setHasSearched(true);
 
-      if (activeResume && results.length > 0) {
-        setIsScoring(true);
-        try {
-          const scores = await matchJobsBatch(activeResume, results);
-          setJobs(results.map(job => ({ ...job, match: scores.get(job.id) })));
-        } finally {
-          setIsScoring(false);
-        }
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Search failed.');
       setJobs([]);
@@ -151,7 +134,6 @@ export default function App() {
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
         appliedCount={applicationLogs.length}
-        aiConfig={aiConfig}
       />
 
       <div className="lg:ml-64 flex flex-col min-h-screen">
@@ -194,16 +176,6 @@ export default function App() {
                     <Zap className="w-3.5 h-3.5" />
                     Live aggregation
                   </span>
-                  <span
-                    className={`px-3 py-1 text-xs font-bold rounded-full flex items-center gap-1.5 border ${
-                      aiConfig?.configured
-                        ? 'bg-white/20 border-white/30 text-white'
-                        : 'bg-white/10 border-white/20 text-white/80'
-                    }`}
-                  >
-                    <Cpu className="w-3.5 h-3.5" />
-                    {aiConfig?.configured ? `AI matching via ${aiConfig.providerName}` : 'Keyword matching'}
-                  </span>
                 </div>
 
                 <h2 className="text-2xl md:text-3xl font-extrabold text-white">
@@ -213,7 +185,7 @@ export default function App() {
                   </span>
                 </h2>
                 <p className="text-xs md:text-sm text-white/90 max-w-2xl">
-                  Aggregated, deduplicated across boards, and scored against your resume.
+                  Aggregated and deduplicated across approved direct sources.
                   You review every application before it is sent — this app never submits on your behalf.
                 </p>
               </div>
@@ -278,7 +250,7 @@ export default function App() {
                   {!hasSearched
                     ? 'Enter a role and press Search. Results are fetched live from Naukri, LinkedIn, Indeed, and more.'
                     : jobs.length === 0
-                      ? 'Try a broader role, clear the location, or check that the JSearch credentials are set on the server.'
+                      ? 'Try a broader role, clear the location, or check your direct-source configuration.'
                       : 'Your source or freshness filter is excluding everything that came back.'}
                 </p>
                 {hasSearched && jobs.length > 0 && (
@@ -298,7 +270,7 @@ export default function App() {
                     job={job}
                     activeResume={activeResume}
                     isApplied={isJobTracked(job.id)}
-                    isScoring={isScoring && !job.match}
+                    isScoring={false}
                     onOpen={setOpenJob}
                   />
                 ))}
@@ -307,14 +279,9 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === 'loops' && (
+        {activeTab === 'mcp' && (
           <div className="animate-fadeIn">
-            <LoopsPanel
-              activeResume={activeResume}
-              onOpenJob={job => {
-                setOpenJob(job);
-              }}
-            />
+            <McpServerPanel onOpenJob={setOpenJob} />
           </div>
         )}
 
@@ -348,12 +315,7 @@ export default function App() {
             <Repeat className="w-3.5 h-3.5" />
             JobPulse — job aggregation, resume matching and application tracking
           </p>
-          <p>
-            Scoring:{' '}
-            <strong className={aiConfig?.configured ? 'text-blue-600' : 'text-gray-400'}>
-              {aiConfig?.configured ? aiConfig.model : 'keyword heuristic (no AI key set)'}
-            </strong>
-          </p>
+          <p>Explicit searches only — no background scheduler.</p>
         </div>
       </footer>
       </div>
@@ -367,11 +329,6 @@ export default function App() {
         onTrackApplication={handleTrackApplication}
       />
 
-      <AiStatusModal
-        isOpen={isAiStatusOpen}
-        config={aiConfig}
-        onClose={() => setIsAiStatusOpen(false)}
-      />
     </div>
   );
 }

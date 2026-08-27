@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings
 from typing import List, Optional
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "JobPulse Auto Apply API"
+    PROJECT_NAME: str = "JobPulse API"
     DATABASE_URL: str = "postgresql+asyncpg://jobpulse:jobpulse_pass@localhost:5432/jobpulse"
     # Log every SQL statement. Debugging aid only — leave off in normal use.
     SQL_ECHO: bool = False
@@ -15,23 +15,14 @@ class Settings(BaseSettings):
     def cors_origin_list(self) -> List[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
 
-    LLM_PROVIDER: str = "google"
-    GOOGLE_API_KEY: Optional[str] = None
-    OPENAI_API_KEY: Optional[str] = None
-    # Model ids go stale. The previous default, gemini-1.5-pro-preview-0409,
-    # had been retired and returned 404 for every request — the provider then
-    # fell back to the keyword scorer, correctly labelled but silently less
-    # useful than the configured key implied. Check the current list with:
-    #   curl -H "x-goog-api-key: $GOOGLE_API_KEY" \
-    #        https://generativelanguage.googleapis.com/v1beta/models
-    GEMINI_MODEL: str = "gemini-3.1-pro-preview"
-    OPENAI_MODEL: str = "gpt-4-turbo"
-    
-    # Force disable AI features to reduce API costs. When true, all AI features
-    # (job matching, resume analysis, cover letters) use heuristic fallbacks.
-    # Job fetching from portals continues to work normally.
-    DISABLE_AI_FEATURES: bool = False
-
+    INDEED_ENABLED: bool = False
+    INDEED_API_KEY: Optional[str] = None
+    NAUKRI_ENABLED: bool = False
+    NAUKRI_API_KEY: Optional[str] = None
+    LINKEDIN_ENABLED: bool = False
+    LINKEDIN_API_KEY: Optional[str] = None
+    REMOTIVE_ENABLED: bool = True
+    ADZUNA_ENABLED: bool = True
     ADZUNA_APP_ID: Optional[str] = None
     ADZUNA_APP_KEY: Optional[str] = None
 
@@ -51,44 +42,7 @@ class Settings(BaseSettings):
     # the name of the portal it came from, so results still show as Naukri,
     # LinkedIn or Indeed rather than as one opaque aggregator.
 
-    # JSearch (RapidAPI by default) — Google for Jobs coverage.
-    JSEARCH_API_KEY: Optional[str] = None
-    JSEARCH_API_HOST: str = "jsearch.p.rapidapi.com"
-    # Configurable because the path has already moved once: the documented
-    # `/search` now 404s and the live endpoint is `/search-v2`.
-    JSEARCH_ENDPOINT: str = "/search-v2"
-    # Results per call, in pages of ~10. Each page costs quota, so this stays
-    # low by default — the endpoint paginates by cursor, which a stateless
-    # search cannot resume, so this is the only way to widen one call.
-    JSEARCH_NUM_PAGES: int = 1
-    JSEARCH_COUNTRY: str = "in"
-    # "all" | "today" | "3days" | "week" | "month". A month keeps the index
-    # broad; the freshness filter in the UI narrows it per search.
-    JSEARCH_DATE_POSTED: str = "month"
-    # Optional allowlist of portal slugs, e.g. "naukri,linkedin,indeed".
-    # Empty means keep every publisher the aggregator returns.
-    JSEARCH_PUBLISHERS: str = ""
-
-    @property
-    def jsearch_publisher_list(self) -> List[str]:
-        return [p.strip().lower() for p in self.JSEARCH_PUBLISHERS.split(",") if p.strip()]
-
-    # Careerjet — free affiliate key, India locale.
-    CAREERJET_API_KEY: Optional[str] = None
-    CAREERJET_LOCALE: str = "en_IN"
-    # The API requires the end user's IP for its own abuse accounting. Server
-    # -side searches have no browser IP to forward, so a placeholder stands in.
-    CAREERJET_USER_IP: str = "127.0.0.1"
-
-    # Jooble — free key, country-specific index.
-    JOOBLE_API_KEY: Optional[str] = None
-    JOOBLE_API_HOST: str = "in.jooble.org"
-
-    # Apify — direct Naukri scraper for better data quality
-    APIFY_API_TOKEN: Optional[str] = None
-    APIFY_NAUKRI_ACTOR_ID: str = "epicscrapers/naukri-scraper"
-
-    # ── Company career boards ─────────────────────────────────────────
+    # ── Approved company career boards ─────────────────────────────────
     # Public ATS endpoints, as `platform:company-slug`. No credentials are
     # needed: these are the same URLs each company's own careers page calls.
     #
@@ -129,11 +83,6 @@ class Settings(BaseSettings):
     # Adzuna is country-scoped: the country decides both the endpoint and the
     # currency of the salary figures it returns. Was hardcoded to India.
     ADZUNA_COUNTRY: str = "in"
-
-    # How often the loop scheduler wakes up to check for due campaigns.
-    LOOP_SCHEDULER_INTERVAL_SECONDS: int = 300
-    # Master switch — disable to run the API without background fetching.
-    LOOP_SCHEDULER_ENABLED: bool = True
 
     class Config:
         env_file = ".env"

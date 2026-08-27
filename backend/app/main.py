@@ -9,55 +9,28 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.database import Base, engine, get_db
-from app.services import scheduler
 
 # Import all models so they are registered on SQLAlchemy's metadata before
 # create_all runs.
 from app.models.application import ApplicationTracking  # noqa: F401
 from app.models.job import Job, JobSourceRecord, Skill  # noqa: F401
-from app.models.loop import JobLoop, LoopMatch  # noqa: F401
+from app.models.mcp import MCPServer  # noqa: F401
 from app.models.user import Resume, User, UserProfile  # noqa: F401
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("jobpulse")
 
 
-def _check_ai_credentials() -> None:
-    """
-    The AI providers degrade to keyword heuristics when no key is present, and
-    they do it silently. Say so loudly at boot so a misconfigured deployment is
-    obvious instead of quietly serving heuristic scores as AI results.
-    """
-    provider = settings.LLM_PROVIDER.lower()
-    key = settings.OPENAI_API_KEY if provider == "openai" else settings.GOOGLE_API_KEY
-
-    if not key:
-        logger.warning(
-            "No API key found for LLM_PROVIDER=%s. /api/ai/* will return "
-            "HEURISTIC fallback results, not AI results. Set %s in your .env "
-            "and ensure docker-compose passes it through (env_file).",
-            provider,
-            "OPENAI_API_KEY" if provider == "openai" else "GOOGLE_API_KEY",
-        )
-    else:
-        logger.info("AI provider '%s' configured with a credential.", provider)
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup/shutdown. Replaces the deprecated @app.on_event handlers."""
-    _check_ai_credentials()
 
     # Schema bootstrap for local development. Alembic owns schema changes —
     # see backend/alembic/ and `alembic upgrade head`.
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    scheduler.start()
-    try:
-        yield
-    finally:
-        await scheduler.stop()
+    yield
 
 
 app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
