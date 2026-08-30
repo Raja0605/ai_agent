@@ -48,12 +48,23 @@ async def search(payload: JobSpySearchRequest):
         raise HTTPException(503, "Job Spy MCP search is unavailable") from exc
     except Exception as exc:
         raise HTTPException(503, "Job Spy MCP search is unavailable") from exc
+
     saved = await save_normalized_jobs(jobs)
-    counts: dict[str, int] = {}
-    for job in jobs:
-        counts[job.source] = counts.get(job.source, 0) + 1
+
+    # Source tabs are Job Spy boards only. Canonical jobs may already have
+    # Remotive/Adzuna records from earlier searches; those must not appear here.
+    sources: dict[str, int] = {}
+    for job in saved:
+        for record in (job.source_records or []):
+            src = record.source or ""
+            if src.startswith("jobspy:"):
+                sources[src] = sources.get(src, 0) + 1
+
     return {
         "results": [JobResponse.model_validate(job) for job in saved],
-        "sources": counts,
-        **meta,
+        "sources": sources,
+        "sites": meta.get("sites", []),
+        "portal_status": meta.get("portal_status", {}),
+        "raw_total": meta.get("total", len(jobs)),
+        "total": len(saved),
     }

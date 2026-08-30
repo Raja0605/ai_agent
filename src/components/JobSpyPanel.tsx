@@ -118,12 +118,21 @@ export function JobSpyPanel({ onOpenJob }: { onOpenJob: (job: JobPost) => void }
       setPortals(data.portal_status);
       setActive('all');
       setConnection('Connected');
-      const lines = Object.entries(data.portal_status).map(([site, state]) =>
-        state.status === 'success'
-          ? `${boardLabel(site)}: ${state.count}`
-          : `${boardLabel(site)}: temporarily unavailable`,
-      );
-      setProgress(`Search completed\n${lines.join('\n')}\nTotal: ${data.total}`);
+      const lines = Object.entries(data.portal_status).map(([site, state]) => {
+        if (state.status === 'success') return `${boardLabel(site)}: ${state.count} jobs`;
+        if (state.status === 'no_results') return `${boardLabel(site)}: 0 (no results for this query)`;
+        if (state.status === 'unavailable') {
+          return `${boardLabel(site)}: unavailable — ${state.message || 'blocked by provider'}`;
+        }
+        return `${boardLabel(site)}: temporarily unavailable${state.message ? ` — ${state.message}` : ''}`;
+      });
+      const unique = data.results.length;
+      const raw = data.raw_total ?? data.total;
+      const totalLine =
+        raw != null && raw !== unique
+          ? `Unique jobs: ${unique} (raw portal hits: ${raw}; ${raw - unique} cross-board duplicate${raw - unique === 1 ? '' : 's'} merged)`
+          : `Total: ${unique}`;
+      setProgress(`Search completed\n${lines.join('\n')}\n${totalLine}`);
     } catch {
       setConnection('Error');
       setProgress('');
@@ -245,13 +254,33 @@ export function JobSpyPanel({ onOpenJob }: { onOpenJob: (job: JobPost) => void }
       )}
 
       {Object.keys(portals).length > 0 && (
-        <div className="rounded-xl border bg-white p-4 text-sm">
-          {Object.entries(portals).map(([site, state]) => (
-            <p key={site} className={state.status === 'failed' ? 'text-amber-700' : 'text-gray-700'}>
-              {boardLabel(site)} {state.status === 'success' ? `SUCCESS ${state.count}` : 'FAILED 0'}
-              {state.status === 'failed' ? ` — ${boardLabel(site)}: temporarily unavailable` : ''}
-            </p>
-          ))}
+        <div className="rounded-xl border bg-white p-4 text-sm space-y-1">
+          <p className="font-semibold mb-2 text-gray-800">Portal Status</p>
+          {Object.entries(portals).map(([site, state]) => {
+            const isSuccess = state.status === 'success';
+            const isUnavailable = state.status === 'unavailable';
+            const isNoResults = state.status === 'no_results';
+            const colorClass = isSuccess
+              ? 'text-emerald-700'
+              : isNoResults
+                ? 'text-gray-500'
+                : isUnavailable
+                  ? 'text-amber-700'
+                  : 'text-red-700';
+            const badge = isSuccess
+              ? `✅ SUCCESS — ${state.count} jobs`
+              : isNoResults
+                ? '⬜ NO RESULTS'
+                : isUnavailable
+                  ? '🚫 UNAVAILABLE'
+                  : '❌ FAILED';
+            return (
+              <p key={site} className={colorClass}>
+                <span className="font-medium">{boardLabel(site)}:</span> {badge}
+                {state.message && !isSuccess ? ` — ${state.message}` : ''}
+              </p>
+            );
+          })}
         </div>
       )}
 
@@ -262,7 +291,9 @@ export function JobSpyPanel({ onOpenJob }: { onOpenJob: (job: JobPost) => void }
             <button type="button" onClick={() => setActive('all')} className="rounded border px-3 py-1 text-sm">
               All ({jobs.length})
             </button>
-            {Object.entries(sources).map(([source, count]) => {
+            {Object.entries(sources)
+              .filter(([source, count]) => source.startsWith('jobspy:') && count > 0)
+              .map(([source, count]) => {
               const key = source.replace('jobspy:', '');
               return (
                 <button key={source} type="button" onClick={() => setActive(key)} className="rounded border px-3 py-1 text-sm">

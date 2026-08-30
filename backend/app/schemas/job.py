@@ -37,8 +37,14 @@ class JobSourceRecordBase(BaseModel):
     job_url: Optional[str] = None
     apply_url: Optional[str] = None
 
+    class Config:
+        from_attributes = True
+
 class SkillBase(BaseModel):
     name: str
+
+    class Config:
+        from_attributes = True
 
 class JobBase(BaseModel):
     title: str

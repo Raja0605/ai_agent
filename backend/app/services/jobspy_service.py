@@ -38,6 +38,29 @@ _SITE_ALIASES = {
     "zip recruiter": "zip_recruiter",
 }
 
+# Sites that are permanently blocked upstream (bot-detection, reCAPTCHA, etc.)
+# and should never be included in the default search pool. Explicit user
+# selections still go through so the UI can report UNAVAILABLE accurately.
+_BLOCKED_SITES = {"naukri"}
+
+# Glassdoor requires more specific location strings than other sites.
+# Map common bare city names to their full region strings.
+_GLASSDOOR_LOCATION_MAP = {
+    "chennai": "Chennai, Tamil Nadu, India",
+    "bangalore": "Bangalore, Karnataka, India",
+    "bengaluru": "Bangalore, Karnataka, India",
+    "mumbai": "Mumbai, Maharashtra, India",
+    "delhi": "New Delhi, Delhi, India",
+    "new delhi": "New Delhi, Delhi, India",
+    "hyderabad": "Hyderabad, Telangana, India",
+    "pune": "Pune, Maharashtra, India",
+    "kolkata": "Kolkata, West Bengal, India",
+    "ahmedabad": "Ahmedabad, Gujarat, India",
+    "noida": "Noida, Uttar Pradesh, India",
+    "gurgaon": "Gurgaon, Haryana, India",
+    "gurugram": "Gurgaon, Haryana, India",
+}
+
 
 class JobSpyService:
     def _base_url(self) -> str:
@@ -104,7 +127,14 @@ class JobSpyService:
         """Search for jobs using HTTP API"""
         info = await self.discover()
         supported = info["sites"]
-        requested = [self.canonical_site(name) for name in (request.site_name or supported)]
+        if request.site_name:
+            # User explicitly chose sites — honour their choice, just canonicalise.
+            requested = [self.canonical_site(name) for name in request.site_name]
+        else:
+            # Default: all supported sites except permanently-blocked ones.
+            requested = [
+                s for s in supported if s not in _BLOCKED_SITES
+            ]
         unknown = [name for name in requested if name not in supported]
         if unknown:
             raise ValueError(f"Unsupported job boards: {', '.join(unknown)}")
@@ -120,16 +150,29 @@ class JobSpyService:
 
         jobs: list[NormalizedJob] = []
         portal_status: dict[str, Any] = {}
-        for site, site_jobs, error in completed:
-            if error:
+        for site, site_jobs, error, mcp_status in completed:
+            label = SITE_LABELS.get(site, site)
+            if mcp_status in ("blocked", "unavailable"):
+                portal_status[site] = {
+                    "status": "unavailable",
+                    "count": 0,
+                    "message": error or f"{label} is currently unavailable (blocked by provider)",
+                }
+            elif mcp_status in ("error", "failed") or (error and mcp_status != "no_results"):
                 portal_status[site] = {
                     "status": "failed",
                     "count": 0,
-                    "message": "temporarily unavailable",
+                    "message": error or "temporarily unavailable",
                 }
-            else:
+            elif site_jobs:
                 jobs.extend(site_jobs)
                 portal_status[site] = {"status": "success", "count": len(site_jobs)}
+            else:
+                portal_status[site] = {
+                    "status": "no_results",
+                    "count": 0,
+                    "message": "No results found for this query",
+                }
 
         return jobs, {
             "sites": requested,
@@ -142,12 +185,17 @@ class JobSpyService:
         request: JobSpySearchRequest,
         site: str,
         timeout: float,
-    ) -> tuple[str, list[NormalizedJob], str | None]:
-        """Search a single job board via HTTP API"""
+    ) -> tuple[str, list[NormalizedJob], str | None, str | None]:
+        """Search a single job board via HTTP API.
+
+        Returns (site, jobs, error_message, mcp_status).
+        mcp_status is one of: success | no_results | blocked | unavailable | error | None
+        """
         try:
+            location = self._normalize_location(request.location, site)
             payload = {
                 "search_term": request.search_term,
-                "location": request.location,
+                "location": location,
                 "site_name": [site],
                 "results_wanted": request.results_wanted,
                 "job_type": request.job_type,
@@ -156,7 +204,10 @@ class JobSpyService:
                 "hours_old": request.hours_old,
                 "country_indeed": self._india_country(request.country_indeed),
             }
-            
+            if site == "google":
+                loc_bit = f" near {location}" if location else ""
+                payload["google_search_term"] = f"{request.search_term} jobs{loc_bit}"
+
             async with httpx.AsyncClient(timeout=timeout + 5) as client:
                 response = await client.post(
                     f"{self._base_url()}/search",
@@ -164,22 +215,55 @@ class JobSpyService:
                     timeout=timeout
                 )
                 if response.status_code != 200:
-                    return site, [], f"HTTP {response.status_code}"
-                
+                    return site, [], f"HTTP {response.status_code}", "failed"
+
                 data = response.json()
-                results = data.get("results", [])
-                jobs = [self._normalize_item(item, site) for item in results]
-                jobs = [j for j in jobs if j is not None]
-                return site, jobs, None
-                
+                mcp_status = data.get("status", "success")
+                error = data.get("error")
+                logger.info(
+                    "JobSpy site %s status=%s count=%s error=%s",
+                    site,
+                    mcp_status,
+                    data.get("count"),
+                    error,
+                )
+
+                if mcp_status in ("blocked", "unavailable", "error", "failed"):
+                    return site, [], error or f"{site} {mcp_status}", mcp_status
+
+                results = data.get("results") or []
+                jobs = [job for item in results if (job := self._normalize_item(item, site)) is not None]
+                dropped = len(results) - len(jobs)
+                if dropped:
+                    logger.warning("JobSpy site %s dropped %s of %s results during normalize", site, dropped, len(results))
+                if results and not jobs:
+                    return site, [], "results dropped during normalize (missing title or URL)", "error"
+                if mcp_status == "no_results" or not jobs:
+                    return site, [], None, "no_results"
+                return site, jobs, None, "success"
+
         except Exception as exc:
             logger.warning("JobSpy portal failed", extra={"site": site, "error": str(exc)})
-            return site, [], "temporarily unavailable"
+            return site, [], "temporarily unavailable", "error"
+
 
     @classmethod
     def canonical_site(cls, value: str) -> str:
         raw = (value or "").strip().lower()
         return _SITE_ALIASES.get(raw, raw.replace(" ", "_"))
+
+    @staticmethod
+    def _normalize_location(location: str | None, site: str) -> str | None:
+        """Expand bare Indian city names for Glassdoor's location lookup.
+
+        JobSpy interpolates the location into Glassdoor's findPopularLocationAjax
+        query. A fuller "City, State, India" string is what the lookup expects
+        when the endpoint is reachable; a 403 from Glassdoor is a separate issue.
+        """
+        if not location or site != "glassdoor":
+            return location
+        key = location.strip().lower()
+        return _GLASSDOOR_LOCATION_MAP.get(key, location)
 
     @staticmethod
     def _india_country(value: str | None) -> str:
@@ -243,6 +327,24 @@ class JobSpyService:
     @staticmethod
     def _salary(item: dict[str, Any]) -> tuple[int | None, int | None, str | None]:
         salary_str = item.get("salary")
+        min_amount = item.get("min_amount")
+        max_amount = item.get("max_amount")
+        currency = item.get("currency")
+        if isinstance(currency, str) and currency.strip():
+            currency_code = currency.strip().upper()
+        else:
+            currency_code = None
+        if min_amount is not None or max_amount is not None:
+            try:
+                salary_min = int(min_amount) if min_amount is not None else None
+            except (TypeError, ValueError):
+                salary_min = None
+            try:
+                salary_max = int(max_amount) if max_amount is not None else None
+            except (TypeError, ValueError):
+                salary_max = None
+            return salary_min, salary_max, currency_code
+
         if not salary_str:
             return None, None, None
         
@@ -251,8 +353,8 @@ class JobSpyService:
         parsed = [int(num.replace(",", "")) for num in numbers if num.replace(",", "").isdigit()]
         
         if len(parsed) >= 2:
-            return parsed[0], parsed[1], "USD"
+            return parsed[0], parsed[1], currency_code or "USD"
         elif parsed:
-            return parsed[0], None, "USD"
+            return parsed[0], None, currency_code or "USD"
         
         return None, None, None

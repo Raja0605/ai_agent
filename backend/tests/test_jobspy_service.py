@@ -109,9 +109,9 @@ async def test_partial_portal_failure_keeps_successful_results(monkeypatch):
             "tools": [{"name": "search_jobs"}],
         }
 
-    async def fake_search_site(tool_name, schema, request, site, timeout):
+    async def fake_search_site(request, site, timeout):
         if site == "glassdoor":
-            return site, [], "temporarily unavailable"
+            return site, [], "temporarily unavailable", "error"
         job = NormalizedJob(
             source=f"jobspy:{site}",
             source_job_id=site,
@@ -123,7 +123,7 @@ async def test_partial_portal_failure_keeps_successful_results(monkeypatch):
             apply_url=f"https://example.com/{site}",
             currency=None,
         )
-        return site, [job], None
+        return site, [job], None, "success"
 
     monkeypatch.setattr(service, "discover", fake_discover)
     monkeypatch.setattr(service, "_search_site", fake_search_site)

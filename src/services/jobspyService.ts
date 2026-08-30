@@ -15,7 +15,7 @@ export interface JobSpyToolInfo {
 }
 
 export interface JobSpyPortalStatus {
-  status: 'success' | 'failed' | string;
+  status: 'success' | 'failed' | 'no_results' | 'unavailable' | string;
   count: number;
   message?: string;
 }
@@ -25,6 +25,7 @@ export interface JobSpySearchResponse {
   sources: Record<string, number>;
   portal_status: Record<string, JobSpyPortalStatus>;
   total: number;
+  raw_total?: number;
   sites: string[];
 }
 
@@ -62,6 +63,7 @@ export async function jobspySearch(payload: Record<string, unknown>): Promise<Jo
     sources: data.sources || {},
     portal_status: data.portal_status || {},
     total: data.total ?? (data.results || []).length,
+    raw_total: data.raw_total,
     sites: data.sites || [],
   };
 }
