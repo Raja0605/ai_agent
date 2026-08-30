@@ -1,12 +1,14 @@
 import json
 import logging
 import re
+import math
 from html import unescape
 from datetime import datetime, timedelta, timezone
 from .exceptions import MCPSearchError
 from .normalizer import MCPJobNormalizer
 from .server_manager import MCPServerManager
 from .tool_discovery import MCPToolDiscovery
+from app.experience import mapper_for
 
 logger = logging.getLogger("jobpulse.mcp_agent")
 
@@ -17,11 +19,12 @@ class MCPJobSearch:
         try:
             client = await manager.connect(self.config)
             tool = await MCPToolDiscovery().find_job_search_tool(await manager.list_tools())
-            args = self._arguments(tool.input_schema, keywords, location, remote, experience_level, filters or {})
-            if tool.name == "search_jobs":
+            args = self._arguments(tool.input_schema, keywords, location, remote, self.config.name, filters or {})
+            if tool.name == "search_jobs" and "max_pages" in tool.input_schema.get("properties", {}):
                 # A page is enough for an interactive UI search and keeps the
                 # follow-up detail requests bounded.
-                args.setdefault("max_pages", 1)
+                requested = int((filters or {}).get("limit", 25))
+                args.setdefault("max_pages", min(10, max(1, math.ceil(requested / 25))))
             logger.info("MCP search started", extra={"server": self.config.name})
             result = await client.call("tools/call", {"name": tool.name, "arguments": args})
             result = self._unwrap(result)
@@ -35,7 +38,15 @@ class MCPJobSearch:
             if tool.name == "search_jobs":
                 result = await self._hydrate_linkedin_jobs(client, result)
             jobs = MCPJobNormalizer().normalize(result, self.config.source)
-            jobs = self._filter_jobs(jobs, filters or {})
+            # A source that accepted a native filter is authoritative for it.
+            # Detail pages occasionally omit the same metadata carried by the
+            # search row, so re-applying locally would turn valid source
+            # results into false negatives.
+            native_experience = any("experience" in key.lower() or "level" in key.lower() for key in args)
+            native_dates = any("date" in key.lower() or "posted" in key.lower() for key in args)
+            jobs = self._filter_jobs(
+                jobs, filters or {}, native_experience=native_experience, native_dates=native_dates
+            )
             logger.info("MCP search completed", extra={"server": self.config.name, "count": len(jobs)})
             return jobs, tool
         except Exception as exc:
@@ -43,15 +54,19 @@ class MCPJobSearch:
             raise MCPSearchError("MCP server unavailable") from exc
         finally: await manager.disconnect()
     @staticmethod
-    def _arguments(schema, keywords, location, remote, experience_level, filters):
+    def _arguments(schema, keywords, location, remote, source_name, filters):
         args = {}; properties = schema.get("properties", {})
+        # Never invent an experience enum for an MCP. The mapper receives the
+        # discovered input schema and emits a value only when it is explicitly
+        # supported by that schema.
+        args.update(mapper_for(source_name, schema).map(filters.get("experience_min"), filters.get("experience_max"), schema))
         for key, value in properties.items():
             lower = key.lower(); kind = value.get("type")
             if "keyword" in lower or lower in {"query", "search", "q"}: args[key] = keywords if kind == "array" else " ".join(keywords)
             elif "location" in lower or lower in {"city", "place"}: args[key] = location
             elif "remote" in lower: args[key] = remote
             elif lower in {"work_type", "workplace_type"} and remote is True: args[key] = "remote"
-            elif "experience" in lower or "level" in lower: args[key] = experience_level
+            elif "experience" in lower or "level" in lower: continue
             elif "date" in lower and filters.get("posted_after"):
                 after = filters["posted_after"]
                 days = (datetime.now(timezone.utc).date() - after).days
@@ -59,7 +74,7 @@ class MCPJobSearch:
         return {k: v for k, v in args.items() if v is not None}
 
     @staticmethod
-    def _filter_jobs(jobs, filters):
+    def _filter_jobs(jobs, filters, *, native_experience=False, native_dates=False):
         minimum, maximum = filters.get("experience_min"), filters.get("experience_max")
         after, before = filters.get("posted_after"), filters.get("posted_before")
         filtered = []
@@ -67,12 +82,19 @@ class MCPJobSearch:
             if minimum is not None or maximum is not None:
                 # Unknown requirements cannot be claimed to satisfy a chosen
                 # range; this is a deterministic, evidence-based filter.
-                if job.experience_min is None and job.experience_max is None: continue
-                job_low = job.experience_min or 0
-                job_high = job.experience_max if job.experience_max is not None else float("inf")
-                if (maximum is not None and job_low > maximum) or (minimum is not None and job_high < minimum): continue
+                if job.experience_min is None and job.experience_max is None:
+                    # Trust a source-native match only when the detail data
+                    # is absent; never pretend unknown locally matches.
+                    if not native_experience: continue
+                else:
+                    job_low = job.experience_min or 0
+                    job_high = job.experience_max if job.experience_max is not None else float("inf")
+                    if (maximum is not None and job_low > maximum) or (minimum is not None and job_high < minimum): continue
             if after or before:
-                if not job.posted_at: continue
+                if not job.posted_at:
+                    if not native_dates: continue
+                    filtered.append(job)
+                    continue
                 posted = job.posted_at.date()
                 if after and posted < after: continue
                 if before and posted > before: continue

@@ -10,7 +10,10 @@ class JobSource(ABC):
 
     @abstractmethod
     async def search_jobs(self, keywords: List[str], location: Optional[str] = None,
-                          filters: Optional[dict] = None) -> List[Any]:
+                          filters: Optional[dict] = None, *, experience_min: Optional[int] = None,
+                          experience_max: Optional[int] = None, posted_after: Optional[str] = None,
+                          posted_before: Optional[str] = None, remote: Optional[bool] = None,
+                          limit: int = 25) -> List[Any]:
         """Fetch jobs based on the given criteria.
 
         Args:

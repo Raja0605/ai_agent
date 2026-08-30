@@ -186,6 +186,8 @@ export async function searchJobs(filter: FilterState, useResume = false): Promis
   if (filter.experienceYears !== '' && filter.experienceYears !== 0) {
     params.set('min_experience', String(filter.experienceYears));
   }
+  if (filter.experienceMin != null) params.set('min_experience', String(filter.experienceMin));
+  if (filter.experienceMax != null) params.set('max_experience', String(filter.experienceMax));
 
   const response = await fetch(`${API_BASE_URL}/jobs/search?${params}`);
   if (!response.ok) {

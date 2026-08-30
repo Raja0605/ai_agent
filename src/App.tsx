@@ -26,6 +26,8 @@ import { ApplicationKitModal } from './components/ApplicationKitModal';
 import { ApplicationTracker } from './components/ApplicationTracker';
 import { AnalyticsOverview } from './components/AnalyticsOverview';
 import { McpServerPanel } from './components/McpServerPanel';
+import { JobSpyPanel } from './components/JobSpyPanel';
+import { PromptAIPanel } from './components/PromptAIPanel';
 import { Sidebar } from './components/Sidebar';
 import './App.css';
 
@@ -34,6 +36,9 @@ const EMPTY_FILTER: FilterState = {
   platform: 'all',
   freshness: 'all',
   experienceYears: '',
+  experienceMin: null,
+  experienceMax: null,
+  selectedSources: ['remotive', 'adzuna'],
   location: '',
   remoteOnly: false,
   minSalary: 0,
@@ -154,7 +159,7 @@ export default function App() {
           <div className="w-10" />
         </header>
 
-        <main className="flex-1 px-4 lg:px-8 py-6 lg:py-8 space-y-6">
+        <main className="flex-1 w-full max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8 space-y-6">
         {error && (
           <div className="flex items-start justify-between gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700">
             <span className="flex items-start gap-2">
@@ -236,8 +241,12 @@ export default function App() {
               isFetching={isFetching}
             />
 
-            {filteredJobs.length === 0 ? (
-              <div className="bg-white border border-gray-200 rounded-2xl p-16 text-center space-y-4">
+            {isFetching ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" aria-label="Searching jobs">
+                {Array.from({ length: 6 }, (_, index) => <div key={index} className="h-[330px] animate-pulse rounded-xl border border-gray-200 bg-white p-5 space-y-5"><div className="h-5 w-2/3 rounded bg-gray-200"/><div className="h-4 w-1/2 rounded bg-gray-100"/><div className="h-10 rounded bg-gray-100"/><div className="h-4 w-full rounded bg-gray-100"/><div className="h-4 w-5/6 rounded bg-gray-100"/></div>)}
+              </div>
+            ) : filteredJobs.length === 0 ? (
+              <div className="bg-white border border-gray-200 rounded-2xl p-10 sm:p-16 text-center space-y-4">
                 <Briefcase className="w-12 h-12 text-gray-400 mx-auto" />
                 <h3 className="text-base font-semibold text-gray-900">
                   {!hasSearched
@@ -282,6 +291,23 @@ export default function App() {
         {activeTab === 'mcp' && (
           <div className="animate-fadeIn">
             <McpServerPanel onOpenJob={setOpenJob} />
+          </div>
+        )}
+
+        {activeTab === 'jobspy' && <div className="animate-fadeIn"><JobSpyPanel onOpenJob={setOpenJob} /></div>}
+
+        {activeTab === 'promptai' && (
+          <div className="animate-fadeIn">
+            <PromptAIPanel
+              resumes={resumes}
+              selectedResume={activeResume}
+              onSelectResume={resume => {
+                setActiveResume(resume);
+                saveActiveResumeId(resume.id);
+              }}
+              isApplied={isJobTracked}
+              onOpenJob={setOpenJob}
+            />
           </div>
         )}
 

@@ -12,9 +12,10 @@ logger = logging.getLogger("jobpulse.mcp_agent")
 class MCPClient:
     """Small JSON-RPC MCP client for stdio, SSE, and Streamable HTTP."""
     def __init__(self, config: MCPServerConfig):
-        if config.transport not in {"stdio", "sse", "streamable-http"} or not config.endpoint:
+        if config.transport not in {"stdio", "sse", "streamable-http", "tcp"} or not config.endpoint:
             raise MCPConfigurationError("MCP server configuration is incomplete")
         self.config, self._id, self._session_id = config, 0, None
+        self._reader = self._writer = None
 
     async def connect(self):
         logger.info("MCP connection started", extra={"server": self.config.name})
@@ -29,6 +30,10 @@ class MCPClient:
             raise MCPConnectionError("MCP server unavailable") from exc
 
     async def close(self):
+        if self._writer:
+            self._writer.close()
+            await self._writer.wait_closed()
+        self._reader = self._writer = None
         return None
 
     async def call(self, method: str, params: dict | None = None, notification: bool = False) -> Any:
@@ -42,6 +47,14 @@ class MCPClient:
                 process = await asyncio.create_subprocess_shell(self.config.endpoint, stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
                 out, _ = await asyncio.wait_for(process.communicate((json.dumps(payload) + "\n").encode()), timeout=15)
                 response = json.loads(out.decode().splitlines()[0])
+            elif self.config.transport == "tcp":
+                endpoint = urlparse(self.config.endpoint if "://" in self.config.endpoint else f"tcp://{self.config.endpoint}")
+                if not self._writer:
+                    self._reader, self._writer = await asyncio.wait_for(asyncio.open_connection(endpoint.hostname, endpoint.port), timeout=15)
+                self._writer.write((json.dumps(payload) + "\n").encode())
+                await self._writer.drain()
+                raw = (await asyncio.wait_for(self._reader.readline(), timeout=210 if method == "tools/call" else 15)).decode()
+                response = json.loads(raw)
             else:
                 headers = {"accept": "application/json, text/event-stream", "content-type": "application/json"}
                 # Docker Desktop exposes Windows-host services through this

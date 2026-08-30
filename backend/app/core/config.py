@@ -83,6 +83,11 @@ class Settings(BaseSettings):
     # Adzuna is country-scoped: the country decides both the endpoint and the
     # currency of the salary figures it returns. Was hardcoded to India.
     ADZUNA_COUNTRY: str = "in"
+    JOBSPY_ENABLED: bool = True
+    JOBSPY_HOST: str = "jobspy_mcp"
+    JOBSPY_PORT: int = 8500
+    JOBSPY_TIMEOUT_SECONDS: int = 90
+    JOBSPY_SITE_TIMEOUT_SECONDS: int = 60
 
     class Config:
         env_file = ".env"

@@ -82,6 +82,26 @@ const KNOWN_SOURCES: Record<string, SourceStyle> = {
     classes: 'bg-lime-500/15 border-lime-500/30 text-lime-300',
     viaAggregator: true,
   },
+  glassdoor: {
+    label: 'Glassdoor',
+    classes: 'bg-green-500/15 border-green-500/30 text-green-300',
+  },
+  google: {
+    label: 'Google Jobs',
+    classes: 'bg-amber-500/15 border-amber-500/30 text-amber-300',
+  },
+  zip_recruiter: {
+    label: 'ZipRecruiter',
+    classes: 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300',
+  },
+  bayt: {
+    label: 'Bayt',
+    classes: 'bg-orange-500/15 border-orange-500/30 text-orange-300',
+  },
+  bdjobs: {
+    label: 'BDJobs',
+    classes: 'bg-rose-500/15 border-rose-500/30 text-rose-300',
+  },
   wellfound: {
     label: 'Wellfound',
     classes: 'bg-slate-500/15 border-slate-500/30 text-slate-300',
@@ -124,15 +144,20 @@ const KNOWN_SOURCES: Record<string, SourceStyle> = {
   },
 };
 
+function boardKey(source: string): string {
+  return source.startsWith('jobspy:') ? source.slice('jobspy:'.length) : source;
+}
+
 /** Whether a source posts straight from the employer's own careers system. */
 export function isDirectSource(source: string): boolean {
-  return Boolean(KNOWN_SOURCES[source]?.direct);
+  return Boolean(KNOWN_SOURCES[boardKey(source)]?.direct);
 }
 
 const FALLBACK_CLASSES = 'bg-slate-800 border-slate-700 text-slate-300';
 
 export function sourceLabel(source: string): string {
-  return KNOWN_SOURCES[source]?.label ?? source.charAt(0).toUpperCase() + source.slice(1);
+  const key = boardKey(source);
+  return KNOWN_SOURCES[key]?.label ?? key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ');
 }
 
 interface SourceBadgeProps {
@@ -142,7 +167,7 @@ interface SourceBadgeProps {
 }
 
 export const SourceBadge: React.FC<SourceBadgeProps> = ({ source, allSources }) => {
-  const known = KNOWN_SOURCES[source];
+  const known = KNOWN_SOURCES[boardKey(source)];
   const extra = (allSources || []).filter(s => s !== source);
 
   return (

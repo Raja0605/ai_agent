@@ -40,6 +40,7 @@ class SearchCriteria:
     india_only: bool = True
     #: Minimum years of experience required. None means no filter.
     min_experience: Optional[int] = None
+    max_experience: Optional[int] = None
 
     @classmethod
     def build(
@@ -49,6 +50,7 @@ class SearchCriteria:
         remote: bool = False,
         india_only: bool = True,
         min_experience: Optional[int] = None,
+        max_experience: Optional[int] = None,
     ) -> "SearchCriteria":
         """Clean, de-duplicate and cap the raw inputs, preserving priority order."""
         return cls(
@@ -56,7 +58,7 @@ class SearchCriteria:
             locations=_clean(locations, MAX_LOCATIONS),
             remote=remote,
             india_only=india_only,
-            min_experience=min_experience,
+            min_experience=min_experience, max_experience=max_experience,
         )
 
 
@@ -71,24 +73,24 @@ def _clean(values: Optional[Sequence[Optional[str]]], limit: int) -> tuple[str, 
     return tuple(seen[:limit])
 
 
-def _extract_experience_years(description: str) -> Optional[int]:
+def extract_experience_range(description: str) -> tuple[Optional[int], Optional[int]]:
     """
     Extract the years of experience requirement from a job description.
     
     Looks for patterns like "3-5 years", "3+ years", "5 years experience", etc.
-    Returns the minimum years required, or None if no requirement is found.
+    Returns the stated range. It is deterministic and deliberately does not infer.
     """
     if not description:
-        return None
+        return None, None
     
     text = description.lower()
     
     # Pattern: "X-Y years", "X+ years", "X years", "X to Y years"
     patterns = [
-        r'(\d+)\s*[-–to]\s*(\d+)\s*(?:years?|yrs?)',  # 3-5 years, 3 to 5 years
-        r'(\d+)\s*\+\s*(?:years?|yrs?)',  # 3+ years
-        r'(\d+)\s*(?:years?|yrs?)\s*(?:experience|exp)?',  # 3 years, 3 years experience
-        r'minimum\s*(?:of\s*)?(\d+)\s*(?:years?|yrs?)',  # minimum 3 years
+        r'(\d+)\s*(?:-|–|to)\s*(\d+)\s*(?:years?|yrs?)',
+        r'(?:minimum|at least)\s*(?:of\s*)?(\d+)\s*(?:years?|yrs?)',
+        r'(\d+)\s*\+\s*(?:years?|yrs?)',
+        r'(\d+)\s*(?:years?|yrs?)\s*(?:of\s*)?(?:experience|exp)?',
     ]
     
     for pattern in patterns:
@@ -96,12 +98,16 @@ def _extract_experience_years(description: str) -> Optional[int]:
         if match:
             if len(match.groups()) == 2:
                 # Range like "3-5 years" - take the minimum
-                return int(match.group(1))
+                return int(match.group(1)), int(match.group(2))
             else:
                 # Single value like "3+ years" or "3 years"
-                return int(match.group(1))
+                return int(match.group(1)), None
     
-    return None
+    return None, None
+
+
+def _extract_experience_years(description: str) -> Optional[int]:
+    return extract_experience_range(description)[0]
 
 
 def relevance(job: NormalizedJob, criteria: SearchCriteria) -> Optional[float]:
@@ -125,9 +131,13 @@ def relevance(job: NormalizedJob, criteria: SearchCriteria) -> Optional[float]:
         return None
 
     # Experience filtering
-    if criteria.min_experience is not None:
-        job_experience = _extract_experience_years(job.description)
-        if job_experience is not None and job_experience < criteria.min_experience:
+    if criteria.min_experience is not None or criteria.max_experience is not None:
+        job_min, job_max = (job.experience_min, job.experience_max)
+        if job_min is None:
+            job_min, job_max = extract_experience_range(job.description)
+        if criteria.min_experience is not None and job_max is not None and job_max < criteria.min_experience:
+            return None
+        if criteria.max_experience is not None and job_min is not None and job_min > criteria.max_experience:
             return None
         # If job doesn't specify experience, include it (better to show more than filter out)
 

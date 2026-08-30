@@ -50,6 +50,18 @@ services:
       postgres:
         condition: service_healthy
 
+  jobspy_mcp:
+    build:
+      context: .
+      dockerfile: docker/jobspy-mcp.Dockerfile
+    container_name: jobpulse-jobspy-mcp
+    ports:
+      - "8500:8500"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+    restart: always
+
   postgres:
     image: postgres:15-alpine
     container_name: job-pulse-postgres

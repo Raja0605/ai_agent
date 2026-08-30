@@ -5,13 +5,14 @@ import httpx
 from app.core.config import settings
 from app.schemas.job import NormalizedJob
 from app.sources.base import JobSource
+from app.services.job_filter import extract_experience_range
 
 
 class AdzunaSource(JobSource):
     name = "adzuna"
 
     async def search_jobs(self, keywords: List[str], location: Optional[str] = None,
-                          filters: Optional[dict] = None) -> List[NormalizedJob]:
+                          filters: Optional[dict] = None, **kwargs) -> List[NormalizedJob]:
         if not settings.ADZUNA_APP_ID or not settings.ADZUNA_APP_KEY:
             return []
         path = f"https://api.adzuna.com/v1/api/jobs/{settings.ADZUNA_COUNTRY}/search/1"
@@ -29,9 +30,11 @@ class AdzunaSource(JobSource):
                 posted_at = datetime.fromisoformat(created.replace("Z", "+00:00")) if created else None
             except ValueError:
                 posted_at = None
+            description = item.get("description") or ""
+            experience_min, experience_max = extract_experience_range(description)
             jobs.append(NormalizedJob(source=self.name, source_job_id=str(item.get("id")), title=item.get("title", "Untitled role"),
                 company=(item.get("company") or {}).get("display_name", "Unknown company"), location=(item.get("location") or {}).get("display_name"),
-                remote="remote" in item.get("title", "").lower(), description=item.get("description") or "", salary_min=item.get("salary_min"),
+                remote="remote" in item.get("title", "").lower(), description=description, experience_min=experience_min, experience_max=experience_max, salary_min=item.get("salary_min"),
                 salary_max=item.get("salary_max"), currency="INR" if settings.ADZUNA_COUNTRY == "in" else None,
                 posted_at=posted_at, job_url=item.get("redirect_url"), apply_url=item.get("redirect_url")))
         return jobs

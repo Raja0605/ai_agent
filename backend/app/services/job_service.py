@@ -1,7 +1,8 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from typing import Dict, List
+from typing import Dict, List, Optional
+from datetime import datetime, timezone
 import logging
 
 from app.models.job import Job, JobSourceRecord, Skill
@@ -11,6 +12,19 @@ from app.services.job_identity import job_fingerprint
 from app.services.skill_extractor import normalize_skills
 
 logger = logging.getLogger("jobpulse.jobs")
+
+
+def _database_datetime(value: Optional[datetime]) -> Optional[datetime]:
+    """Store all source timestamps as naive UTC for the current DB column.
+
+    MCP/HTTP sources commonly return ISO timestamps with a UTC offset, while
+    the existing `jobs.posted_at` column is `TIMESTAMP WITHOUT TIME ZONE`.
+    asyncpg correctly rejects mixing the two, which previously caused a good
+    MCP result to be silently skipped by this batch's per-job savepoint.
+    """
+    if value is None or value.tzinfo is None:
+        return value
+    return value.astimezone(timezone.utc).replace(tzinfo=None)
 
 
 async def _resolve_skills(db: AsyncSession, names: List[str], cache: Dict[str, Skill]) -> List[Skill]:
@@ -75,6 +89,7 @@ async def save_normalized_jobs(jobs: List[NormalizedJob]) -> List[Job]:
     async with AsyncSessionLocal() as db:
         for nj in jobs:
             try:
+                posted_at = _database_datetime(nj.posted_at)
                 # A savepoint per job: one malformed posting rolls back only
                 # itself, instead of discarding the whole batch or forcing a
                 # round-trip commit for every single job.
@@ -123,7 +138,7 @@ async def save_normalized_jobs(jobs: List[NormalizedJob]) -> List[Job]:
                             salary_min=nj.salary_min,
                             salary_max=nj.salary_max,
                             currency=nj.currency,
-                            posted_at=nj.posted_at,
+                            posted_at=posted_at,
                         )
                         db.add(canonical)
                         await db.flush()  # assign canonical.id
@@ -137,8 +152,8 @@ async def save_normalized_jobs(jobs: List[NormalizedJob]) -> List[Job]:
                             canonical.salary_min = nj.salary_min
                             canonical.salary_max = nj.salary_max
                             canonical.currency = nj.currency
-                        if canonical.posted_at is None and nj.posted_at is not None:
-                            canonical.posted_at = nj.posted_at
+                        if canonical.posted_at is None and posted_at is not None:
+                            canonical.posted_at = posted_at
                         if canonical.experience_min is None and nj.experience_min is not None:
                             canonical.experience_min = nj.experience_min
                             canonical.experience_max = nj.experience_max

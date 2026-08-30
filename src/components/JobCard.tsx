@@ -20,6 +20,7 @@ interface JobCardProps {
   isApplied: boolean;
   isScoring?: boolean;
   onOpen: (job: JobPost) => void;
+  showMatchDetails?: boolean;
 }
 
 const FreshnessPill: React.FC<{ hours: number | null; label: string }> = ({ hours, label }) => {
@@ -64,11 +65,12 @@ export const JobCard: React.FC<JobCardProps> = ({
   isApplied,
   isScoring,
   onOpen,
+  showMatchDetails,
 }) => {
   const resumeSkills = activeResume?.skills ?? [];
 
   return (
-    <div className="relative group bg-white border border-gray-200 hover:border-blue-300 hover:shadow-lg transition-all duration-200 rounded-xl p-5 flex flex-col justify-between gap-4 card-shadow card-shadow-hover">
+    <div className="relative group min-h-[330px] bg-white border border-gray-200 hover:border-blue-300 hover:shadow-lg transition-all duration-200 rounded-xl p-5 flex flex-col justify-between gap-4 card-shadow card-shadow-hover">
 
       {/* Meta row: where it came from, how old it is, how well it fits */}
       <div className="flex items-start justify-between gap-2 flex-wrap">
@@ -150,6 +152,31 @@ export const JobCard: React.FC<JobCardProps> = ({
         </div>
       )}
 
+      {showMatchDetails && job.match && (
+        <div className="space-y-2 rounded-lg border border-gray-100 bg-gray-50 p-3">
+          {job.match.matchReasons && job.match.matchReasons.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Why this matches</p>
+              <ul className="mt-1 space-y-0.5">
+                {job.match.matchReasons.slice(0, 6).map(reason => (
+                  <li key={reason} className="text-[11px] text-emerald-700">✓ {reason}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {job.match.gaps && job.match.gaps.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Potential gaps</p>
+              <ul className="mt-1 space-y-0.5">
+                {job.match.gaps.slice(0, 4).map(gap => (
+                  <li key={gap} className="text-[11px] text-amber-700">• {gap}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="h-[1px] bg-gray-200" />
 
       <div className="flex items-center justify-between gap-3">
@@ -160,7 +187,7 @@ export const JobCard: React.FC<JobCardProps> = ({
           className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-900 transition-colors"
         >
           <ExternalLink className="w-3.5 h-3.5" />
-          View listing
+          View details
         </a>
 
         <button
@@ -177,7 +204,7 @@ export const JobCard: React.FC<JobCardProps> = ({
               Tracked
             </>
           ) : (
-            'Prepare application'
+            'Save'
           )}
         </button>
       </div>

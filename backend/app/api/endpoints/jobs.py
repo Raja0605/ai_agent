@@ -111,6 +111,7 @@ async def search_jobs_post(payload: JobSearchRequest):
     """Search configured direct sources now; no scheduled or background fetching."""
     jobs, _ = await source_manager.search(payload.keywords, payload.location,
         {"remote": payload.remote, "experience_level": payload.experience_level,
+         "experience_min": payload.experience_min, "experience_max": payload.experience_max,
          "salary_min": payload.salary_min}, payload.sources or None)
     return await save_normalized_jobs(jobs)
 
@@ -125,6 +126,7 @@ async def search_jobs(
     use_resume: bool = Query(False, description="Use user resume to generate queries"),
     india_only: bool = Query(None, description="Restrict to jobs reachable from India"),
     min_experience: Optional[int] = Query(None, description="Minimum years of experience required"),
+    max_experience: Optional[int] = Query(None, description="Maximum years of experience required"),
     page: int = Query(1, ge=1),
     db: AsyncSession = Depends(get_db),
     current_user_id: str = Depends(get_current_user)
@@ -162,7 +164,7 @@ async def search_jobs(
         locations=locations,
         remote=remote,
         india_only=settings.INDIA_ONLY if india_only is None else india_only,
-        min_experience=min_experience,
+        min_experience=min_experience, max_experience=max_experience,
     )
 
     # `fetch` returns only the postings that answer `criteria`, best match

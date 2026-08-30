@@ -26,6 +26,8 @@ class JobSearchRequest(BaseModel):
     location: Optional[str] = None
     remote: bool = False
     experience_level: Optional[str] = None
+    experience_min: Optional[int] = None
+    experience_max: Optional[int] = None
     salary_min: Optional[int] = None
     sources: List[str] = []
 

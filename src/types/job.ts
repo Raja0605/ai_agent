@@ -26,6 +26,8 @@ export interface MatchResult {
   reason?: string;
   method: MatchMethod;
   confidence: MatchConfidence;
+  matchReasons?: string[];
+  gaps?: string[];
 }
 
 export interface JobPost {
@@ -121,6 +123,8 @@ export interface FilterState {
   minSalary: number;
   experienceMin?: number | null;
   experienceMax?: number | null;
+  /** Sources selected for the next search; portal conversion stays server-side. */
+  selectedSources?: Platform[];
   postedAfter?: string;
   postedBefore?: string;
 }
