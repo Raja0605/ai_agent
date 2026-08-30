@@ -152,7 +152,13 @@ class JobSpyService:
         portal_status: dict[str, Any] = {}
         for site, site_jobs, error, mcp_status in completed:
             label = SITE_LABELS.get(site, site)
-            if mcp_status in ("blocked", "unavailable"):
+            if mcp_status == "verification_required":
+                portal_status[site] = {
+                    "status": "verification_required",
+                    "count": 0,
+                    "message": error or f"{label} requires verification. Open the official {label} page and complete the CAPTCHA manually before continuing.",
+                }
+            elif mcp_status in ("blocked", "unavailable"):
                 portal_status[site] = {
                     "status": "unavailable",
                     "count": 0,
@@ -189,7 +195,7 @@ class JobSpyService:
         """Search a single job board via HTTP API.
 
         Returns (site, jobs, error_message, mcp_status).
-        mcp_status is one of: success | no_results | blocked | unavailable | error | None
+        mcp_status is one of: success | no_results | blocked | unavailable | verification_required | error | None
         """
         try:
             location = self._normalize_location(request.location, site)
@@ -228,7 +234,7 @@ class JobSpyService:
                     error,
                 )
 
-                if mcp_status in ("blocked", "unavailable", "error", "failed"):
+                if mcp_status in ("blocked", "unavailable", "verification_required", "error", "failed"):
                     return site, [], error or f"{site} {mcp_status}", mcp_status
 
                 results = data.get("results") or []

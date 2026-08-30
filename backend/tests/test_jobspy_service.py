@@ -140,6 +140,47 @@ async def test_partial_portal_failure_keeps_successful_results(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_naukri_verification_status_is_exposed(monkeypatch):
+    service = JobSpyService()
+
+    async def fake_discover():
+        return {
+            "search_tool": {"name": "search_jobs", "inputSchema": SCHEMA},
+            "sites": ["indeed", "naukri"],
+            "schema": SCHEMA,
+            "tools": [{"name": "search_jobs"}],
+        }
+
+    async def fake_search_site(request, site, timeout):
+        if site == "naukri":
+            return site, [], "Naukri requires verification. Open the official Naukri page and complete the CAPTCHA manually before continuing.", "verification_required"
+        job = NormalizedJob(
+            source=f"jobspy:{site}",
+            source_job_id=site,
+            title="DevOps Engineer",
+            company="ABC Technologies",
+            location="Chennai",
+            description="",
+            job_url=f"https://example.com/{site}",
+            apply_url=f"https://example.com/{site}",
+            currency=None,
+        )
+        return site, [job], None, "success"
+
+    monkeypatch.setattr(service, "discover", fake_discover)
+    monkeypatch.setattr(service, "_search_site", fake_search_site)
+
+    jobs, meta = await service.search(JobSpySearchRequest(
+        search_term="DevOps Engineer",
+        location="Chennai",
+        site_name=["indeed", "naukri"],
+    ))
+    assert len(jobs) == 1
+    assert meta["portal_status"]["naukri"]["status"] == "verification_required"
+    assert "verification" in meta["portal_status"]["naukri"]["message"].lower()
+
+
+@pytest.mark.asyncio
 async def test_unknown_board_is_rejected(monkeypatch):
     service = JobSpyService()
 

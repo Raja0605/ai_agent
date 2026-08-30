@@ -27,6 +27,39 @@ function boardLabel(board: string) {
   return BOARD_LABELS[board] || sourceLabel(board);
 }
 
+const NAUKRI_LOCATION_ALIASES: Record<string, string> = {
+  bangalore: 'bangalore',
+  bengaluru: 'bangalore',
+  chennai: 'chennai',
+  hyderabad: 'hyderabad',
+  pune: 'pune',
+  mumbai: 'mumbai',
+  delhi: 'delhi',
+  noida: 'noida',
+  gurgaon: 'gurgaon',
+  gurugram: 'gurgaon',
+  kolkata: 'kolkata',
+  ahmedabad: 'ahmedabad',
+};
+
+export function buildNaukriSearchUrl(term: string, location: string) {
+  const keyword = (term || 'DevOps Engineer')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .join('-');
+
+  const citySource = (location || 'Chennai').split(',')[0].trim();
+  const cityKey = citySource.toLowerCase();
+  const city = NAUKRI_LOCATION_ALIASES[cityKey] || citySource.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+  return `https://www.naukri.com/${keyword || 'devops-engineer'}-jobs-in-${city || 'chennai'}`;
+}
+
 export function JobSpyPanel({ onOpenJob }: { onOpenJob: (job: JobPost) => void }) {
   const [boards, setBoards] = useState<string[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
@@ -121,11 +154,18 @@ export function JobSpyPanel({ onOpenJob }: { onOpenJob: (job: JobPost) => void }
       const lines = Object.entries(data.portal_status).map(([site, state]) => {
         if (state.status === 'success') return `${boardLabel(site)}: ${state.count} jobs`;
         if (state.status === 'no_results') return `${boardLabel(site)}: 0 (no results for this query)`;
+        if (state.status === 'verification_required') {
+          return `${boardLabel(site)}: VERIFICATION_REQUIRED — ${state.message || 'Open Naukri to complete the CAPTCHA manually.'}`;
+        }
         if (state.status === 'unavailable') {
           return `${boardLabel(site)}: unavailable — ${state.message || 'blocked by provider'}`;
         }
         return `${boardLabel(site)}: temporarily unavailable${state.message ? ` — ${state.message}` : ''}`;
       });
+      const hasNaukriVerification = data.portal_status.naukri?.status === 'verification_required';
+      if (hasNaukriVerification) {
+        setMessage('Naukri requires verification. Open the official Naukri page and complete the CAPTCHA manually.');
+      }
       const unique = data.results.length;
       const raw = data.raw_total ?? data.total;
       const totalLine =
@@ -140,6 +180,11 @@ export function JobSpyPanel({ onOpenJob }: { onOpenJob: (job: JobPost) => void }
     } finally {
       setBusy(false);
     }
+  };
+
+  const openNaukriSearch = () => {
+    const url = buildNaukriSearchUrl(term, location);
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const statusColor =
@@ -178,6 +223,16 @@ export function JobSpyPanel({ onOpenJob }: { onOpenJob: (job: JobPost) => void }
       </div>
 
       {message && <p className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{message}</p>}
+
+      {portals.naukri?.status === 'verification_required' && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <p className="font-semibold">Naukri requires verification.</p>
+          <p className="mt-1">{portals.naukri.message || 'Open the official Naukri page, complete the CAPTCHA manually, then retry the search.'}</p>
+          <button type="button" onClick={openNaukriSearch} className="mt-3 rounded bg-amber-600 px-3 py-2 text-white hover:bg-amber-700">
+            Open Naukri
+          </button>
+        </div>
+      )}
 
       <form onSubmit={search} className="rounded-xl border bg-white p-5 shadow-sm">
         <h3 className="font-semibold">Search Jobs</h3>

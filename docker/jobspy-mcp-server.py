@@ -67,6 +67,8 @@ def _classify(site: str, count: int, logs: list[str], exc: Exception | None) -> 
     if exc and "unexpected keyword argument 'user_agent'" in err:
         return "unavailable", f"{site} is unavailable in this JobSpy version (scraper constructor mismatch)"
     if "recaptcha" in combined or "captcha" in combined:
+        if site == "naukri":
+            return "verification_required", "Naukri requires verification. Open the official Naukri search page and complete the CAPTCHA manually before continuing."
         return "unavailable", f"{site} is blocked by reCAPTCHA"
     if "429" in combined:
         return "unavailable", f"{site} rate-limited by the provider"

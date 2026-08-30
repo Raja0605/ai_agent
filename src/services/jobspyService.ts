@@ -15,7 +15,7 @@ export interface JobSpyToolInfo {
 }
 
 export interface JobSpyPortalStatus {
-  status: 'success' | 'failed' | 'no_results' | 'unavailable' | string;
+  status: 'success' | 'failed' | 'no_results' | 'unavailable' | 'verification_required' | string;
   count: number;
   message?: string;
 }
